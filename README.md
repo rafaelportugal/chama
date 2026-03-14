@@ -2,30 +2,26 @@
 
 **SDLC pipeline orchestrator for Claude Code** — Idea -> RFC -> Code -> Review -> Merge.
 
-Chama is a generic Claude Code plugin that brings a full development lifecycle workflow to any project. Configure once with `.chama.yml` and `CLAUDE.md`, then use slash commands to drive your development.
+Chama is a Claude Code plugin that brings a full development lifecycle workflow to any project. Configure once with `.chama.yml` and `CLAUDE.md`, then use slash commands to drive your development.
 
 The name "chama" combines fire with the act of "calling/invoking" — perfect for a CLI of commands.
 
 ## Quick Start
 
-### 1. Install as global plugin
+### 1. Install
 
 ```bash
-# Clone to Claude Code plugins directory
-git clone <repo-url> ~/.claude/plugins/chama
-```
+# Add the marketplace
+/plugin marketplace add rafaelportugal/chama
 
-Register in `~/.claude/settings.json`:
-```json
-{
-  "plugins": ["~/.claude/plugins/chama"]
-}
+# Install the plugin
+/plugin install chama@chama
 ```
 
 ### 2. Initialize your project
 
 ```
-/chama-init
+/chama:init
 ```
 
 This will:
@@ -38,21 +34,21 @@ This will:
 ### 3. Start building
 
 ```
-/chama-ideas        # Brainstorm and create structured ideas
-/chama-architect N  # Transform idea #N into RFC + phases
-/chama-code         # Execute next task from backlog
-/chama-review-loop  # Process PR review comments
+/chama:ideas        # Brainstorm and create structured ideas
+/chama:architect N  # Transform idea #N into RFC + phases
+/chama:code         # Execute next task from backlog
+/chama:review-loop  # Process PR review comments
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/chama-init` | Project onboarding — creates `.chama.yml`, labels, project |
-| `/chama-ideas` | Ideas studio — brainstorm with Product Lead + Designer personas |
-| `/chama-architect` | Idea -> RFC + phases + epic (all as GitHub Issues) |
-| `/chama-code` | Execute next Todo task with quality gates |
-| `/chama-review-loop` | Handle PR comments in loop, scoped by RFC |
+| `/chama:init` | Project onboarding — creates `.chama.yml`, labels, project |
+| `/chama:ideas` | Ideas studio — brainstorm with Product Lead + Designer personas |
+| `/chama:architect` | Idea -> RFC + phases + epic (all as GitHub Issues) |
+| `/chama:code` | Execute next Todo task with quality gates |
+| `/chama:review-loop` | Handle PR comments in loop, scoped by RFC |
 
 ## Configuration
 
@@ -119,9 +115,9 @@ Instead of local `.md` files, ideas and RFCs live as GitHub Issues:
 
 ### Flow
 ```
-/chama-ideas      -> creates Issue label:idea
-/chama-architect  -> reads idea Issue -> creates rfc + phase + epic Issues
-/chama-code       -> finds phase Issue status:Todo -> implements, creates PR
+/chama:ideas      -> creates Issue label:idea
+/chama:architect  -> reads idea Issue -> creates rfc + phase + epic Issues
+/chama:code       -> finds phase Issue status:Todo -> implements, creates PR
 ```
 
 ## Headless / Compose Mode
@@ -148,13 +144,14 @@ The compose orchestrator runs 5 phases per task:
 ```
 chama/
 ├── .claude-plugin/
-│   └── plugin.json              # Plugin manifest
-├── commands/                    # Slash commands (interactive)
-│   ├── chama-init.md
-│   ├── chama-ideas.md
-│   ├── chama-architect.md
-│   ├── chama-code.md
-│   └── chama-review-loop.md
+│   ├── plugin.json              # Plugin manifest
+│   └── marketplace.json         # Marketplace definition
+├── skills/                      # Slash commands (interactive)
+│   ├── init/SKILL.md
+│   ├── ideas/SKILL.md
+│   ├── architect/SKILL.md
+│   ├── code/SKILL.md
+│   └── review-loop/SKILL.md
 ├── workflow/                    # Headless prompts + scripts
 │   ├── prompt-compose-coder.md
 │   ├── prompt-compose-simplify.md
@@ -166,13 +163,18 @@ chama/
 │   ├── Dockerfile
 │   ├── docker-compose.yml
 │   └── README.md
-├── templates/                   # Templates for /chama-init
+├── templates/                   # Templates for /chama:init
 │   ├── chama.yml.template
 │   └── CLAUDE.md.template
-└── scripts/
-    └── setup-github-project.sh
+├── scripts/
+│   └── setup-github-project.sh
+└── LICENSE
 ```
 
 ## Multi-language Support
 
 Set `project.language` in `.chama.yml` to `pt-BR` or `en`. All commands respond in the configured language. Default: `pt-BR`.
+
+## License
+
+[MIT](LICENSE)

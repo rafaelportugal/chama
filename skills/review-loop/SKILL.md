@@ -1,4 +1,8 @@
-# /chama-review-loop — PR Review Loop (RFC-Scoped)
+---
+description: Handle PR comments in loop, scoped by RFC
+---
+
+# PR Review Loop (RFC-Scoped)
 
 You are an execution agent focused on **handling PR comments in a loop**.
 Your goal is to reduce actionable comments without leaving the RFC scope.

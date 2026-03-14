@@ -4,10 +4,10 @@ Chama is a generic SDLC pipeline orchestrator that works with any project via `.
 
 ## Architecture
 
-- `commands/` — Slash commands (interactive, invoked by user)
+- `skills/` — Slash commands (interactive, invoked by user as `/chama:<skill>`)
 - `workflow/` — Headless prompts for compose/automation pipelines
 - `agent/` — Docker runtime for isolated AI agent execution
-- `templates/` — Templates used by `/chama-init` for project onboarding
+- `templates/` — Templates used by `/chama:init` for project onboarding
 - `scripts/` — Utility scripts (GitHub label setup, etc.)
 
 ## Key patterns
@@ -21,16 +21,16 @@ Chama is a generic SDLC pipeline orchestrator that works with any project via `.
 ## Command flow
 
 ```
-/chama-init       -> onboard project (.chama.yml, labels, project)
-/chama-ideas      -> brainstorm -> GitHub Issue (label: idea)
-/chama-architect  -> idea Issue -> RFC Issue + phase Issues + epic Issue
-/chama-code       -> phase Issue (Todo) -> implement -> PR
-/chama-review-loop -> PR comments -> fix/respond -> merge
+/chama:init       -> onboard project (.chama.yml, labels, project)
+/chama:ideas      -> brainstorm -> GitHub Issue (label: idea)
+/chama:architect  -> idea Issue -> RFC Issue + phase Issues + epic Issue
+/chama:code       -> phase Issue (Todo) -> implement -> PR
+/chama:review-loop -> PR comments -> fix/respond -> merge
 ```
 
 ## When editing this plugin
 
-- Commands in `commands/` should read config from `.chama.yml`, never hardcode repo/owner/project
+- Skills in `skills/` should read config from `.chama.yml`, never hardcode repo/owner/project
 - Headless prompts in `workflow/` follow the same pattern
 - Scripts discover the chama plugin path dynamically (local `chama/` or `~/.claude/plugins/chama/`)
 - All GitHub API calls use `$REPO`, `$OWNER`, `$PROJECT_NUM` variables

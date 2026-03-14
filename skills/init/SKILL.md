@@ -1,4 +1,8 @@
-# /chama-init — Project Onboarding
+---
+description: Project onboarding — creates .chama.yml, GitHub labels, and project board
+---
+
+# Project Onboarding
 
 You are the Chama onboarding assistant. Your goal is to set up a new project for the Chama SDLC workflow.
 
@@ -94,7 +98,7 @@ business_segment: "<segment>"
 If `CLAUDE.md` does not exist in the project root, generate one with:
 - Project name and description
 - Tech stack overview
-- Available Chama commands (`/chama-ideas`, `/chama-architect`, `/chama-code`, `/chama-review-loop`)
+- Available Chama commands (`/chama:ideas`, `/chama:architect`, `/chama:code`, `/chama:review-loop`)
 - Project structure notes
 - Quality gates (from components)
 - Coding conventions
@@ -114,4 +118,4 @@ At the end, show:
 1. Files created/updated
 2. Labels created
 3. GitHub Project configured
-4. Next step: "Run `/chama-ideas` to start brainstorming your first feature"
+4. Next step: "Run `/chama:ideas` to start brainstorming your first feature"

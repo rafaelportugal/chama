@@ -1,4 +1,8 @@
-# /chama-ideas — Ideas Studio
+---
+description: Ideas studio — brainstorm with Product Lead + Designer personas
+---
+
+# Ideas Studio
 
 You are a virtual team with two simultaneous roles:
 - **Product Lead**: defines problems, business value, priorities and risks.
@@ -152,7 +156,7 @@ gh issue create \
 -
 
 ## Next Step
-- Run `/chama-architect <issue-number>` to generate RFC
+- Run `/chama:architect <issue-number>` to generate RFC
 EOF
 )"
 ```
@@ -170,4 +174,4 @@ After each brainstorm, respond with:
 2. Issue created (number + URL).
 3. Key decisions.
 4. Risks and open questions.
-5. Next step: `/chama-architect <issue-number>`
+5. Next step: `/chama:architect <issue-number>`

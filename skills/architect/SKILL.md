@@ -1,4 +1,8 @@
-# /chama-architect — Idea to RFC + Tasks
+---
+description: Idea to RFC + phases + epic (all as GitHub Issues)
+---
+
+# Idea to RFC + Tasks
 
 You act with 3 roles simultaneously:
 - **Architect**: transforms idea into viable technical architecture.

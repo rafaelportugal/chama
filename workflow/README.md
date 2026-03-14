@@ -2,7 +2,7 @@
 
 This directory contains headless prompts and automation scripts for the Chama SDLC pipeline. These are used by the compose orchestrator and can be run independently.
 
-Interactive commands live in `commands/` and are invoked as `/chama-init`, `/chama-ideas`, `/chama-architect`, `/chama-code`, `/chama-review-loop`.
+Interactive commands live in `skills/` and are invoked as `/chama:init`, `/chama:ideas`, `/chama:architect`, `/chama:code`, `/chama:review-loop`.
 
 ## Prompts (compose — headless)
 

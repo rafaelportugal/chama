@@ -1,5 +1,12 @@
 {
   "name": "chama",
-  "description": "SDLC pipeline orchestrator — Idea -> RFC -> Code -> Review -> Merge. Configure per-project via .chama.yml.",
-  "author": { "name": "Rafael Portugal" }
+  "version": "1.0.0",
+  "description": "SDLC pipeline orchestrator — Idea -> RFC -> Code -> Review -> Merge",
+  "author": {
+    "name": "Rafael Portugal",
+    "url": "https://github.com/rafaelportugal"
+  },
+  "repository": "https://github.com/rafaelportugal/chama",
+  "license": "MIT",
+  "keywords": ["sdlc", "workflow", "rfc", "github-issues", "pipeline", "orchestrator"]
 }

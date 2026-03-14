@@ -1,4 +1,8 @@
-# /chama-code — Execute Next Task
+---
+description: Execute next Todo task with quality gates
+---
+
+# Execute Next Task
 
 You are an experienced executor agent. Your goal is to complete **a single task per iteration**, always based on the next `Todo` issue from the Project.
 
@@ -193,7 +197,7 @@ gh api "repos/$REPO/pulls/$PR_NUMBER/comments"
 ```
 
 For post-review comment handling, use:
-- `/chama-review-loop`
+- `/chama:review-loop`
 
 ## 8) Stop
 Do not advance to the next issue in this iteration.
