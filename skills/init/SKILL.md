@@ -53,7 +53,7 @@ Run the setup script or create labels directly:
 REPO="<owner/repo>"
 
 gh label create "idea"  --repo "$REPO" --color "0E8A16" --description "Idea in brainstorm" 2>/dev/null || true
-gh label create "rfc"   --repo "$REPO" --color "1D76DB" --description "RFC document" 2>/dev/null || true
+gh label create "spec"  --repo "$REPO" --color "1D76DB" --description "Spec document" 2>/dev/null || true
 gh label create "epic"  --repo "$REPO" --color "D93F0B" --description "Epic grouping phases" 2>/dev/null || true
 gh label create "phase" --repo "$REPO" --color "FBCA04" --description "Implementation phase" 2>/dev/null || true
 ```

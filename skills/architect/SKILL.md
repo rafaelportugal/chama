@@ -1,8 +1,8 @@
 ---
-description: Idea to RFC + phases + epic (all as GitHub Issues)
+description: Idea to Spec + phases + epic (all as GitHub Issues)
 ---
 
-# Idea to RFC + Tasks
+# Idea to Spec + Tasks
 
 You act with 3 roles simultaneously:
 - **Architect**: transforms idea into viable technical architecture.
@@ -12,7 +12,7 @@ You act with 3 roles simultaneously:
 Your job is to execute **one idea per iteration** and complete this flow:
 1. Read the idea (GitHub Issue)
 2. Define architecture
-3. Generate RFC (as GitHub Issue)
+3. Generate Spec (as GitHub Issue)
 4. Break into phases (as GitHub Issues)
 5. Create epic (as GitHub Issue)
 
@@ -55,7 +55,7 @@ gh issue view "$IDEA_ISSUE" --repo "$REPO"
 - If critical context is missing, ask at most 5 objective questions.
 
 ## 2) Define target architecture
-Before the RFC, consolidate the architectural vision:
+Before the Spec, consolidate the architectural vision:
 - Context boundary (which modules/systems change).
 - Domain and data (entities, relationships, migrations).
 - Contracts (endpoints, events, payloads, compatibility).
@@ -66,17 +66,17 @@ Before the RFC, consolidate the architectural vision:
 - Avoid large restructures/refactors; if needed, register as out of scope.
 - Define test strategy per scenario (happy path, edge, error, regression) at this stage.
 
-## 3) Create RFC Issue
+## 3) Create Spec Issue
 
-Create a GitHub Issue with label `rfc`:
+Create a GitHub Issue with label `spec`:
 
 ```bash
-RFC_URL=$(gh issue create \
+SPEC_URL=$(gh issue create \
   --repo "$REPO" \
-  --label "rfc" \
-  --title "rfc: <RFC title>" \
-  --body "$(cat <<'RFCEOF'
-# RFC: <Title>
+  --label "spec" \
+  --title "spec: <Spec title>" \
+  --body "$(cat <<'SPECEOF'
+# Spec: <Title>
 
 **Date:** YYYY-MM-DD
 **Status:** Draft
@@ -143,7 +143,7 @@ RFC_URL=$(gh issue create \
 
 ## 16. Open Questions
 - ...
-RFCEOF
+SPECEOF
 )")
 ```
 
@@ -155,11 +155,11 @@ For each phase, create an issue with label `phase`:
 PHASE_URL=$(gh issue create \
   --repo "$REPO" \
   --label "phase" \
-  --title "phase: [RFC #RFC_NUMBER] Phase N - <name>" \
+  --title "phase: [Spec #SPEC_NUMBER] Phase N - <name>" \
   --body "Parent: $EPIC_URL
 
-## RFC
-- #RFC_NUMBER
+## Spec
+- #SPEC_NUMBER
 
 ## Objective
 - <objective>
@@ -184,9 +184,9 @@ Create a tracking issue with label `epic`:
 EPIC_URL=$(gh issue create \
   --repo "$REPO" \
   --label "epic" \
-  --title "epic: <RFC title>" \
-  --body "## RFC
-- #RFC_NUMBER
+  --title "epic: <Spec title>" \
+  --body "## Spec
+- #SPEC_NUMBER
 
 ## Phases
 - [ ] Phase 1: <name> — #PHASE_1_NUMBER
@@ -213,12 +213,12 @@ gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$FIE
 ## 7) Close the idea Issue
 
 ```bash
-gh issue close "$IDEA_ISSUE" --repo "$REPO" --comment "Converted to RFC #RFC_NUMBER + Epic #EPIC_NUMBER. Phases created."
+gh issue close "$IDEA_ISSUE" --repo "$REPO" --comment "Converted to Spec #SPEC_NUMBER + Epic #EPIC_NUMBER. Phases created."
 ```
 
 ## Completion criteria
 Finish only when:
-- RFC Issue created with label `rfc`
+- Spec Issue created with label `spec`
 - Phase Issues created with label `phase`
 - Epic Issue created with label `epic`
 - All items added to Project with status `Todo`
@@ -226,7 +226,7 @@ Finish only when:
 
 ## Final response
 Respond with:
-1. RFC created (issue number + URL)
+1. Spec created (issue number + URL)
 2. Architecture summary
 3. Phases defined (list with issue numbers)
 4. Epic created (number + URL)

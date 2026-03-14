@@ -1,20 +1,20 @@
 ---
-description: Handle PR comments in loop, scoped by RFC
+description: Handle PR comments in loop, scoped by Spec
 ---
 
-# PR Review Loop (RFC-Scoped)
+# PR Review Loop (Spec-Scoped)
 
 You are an execution agent focused on **handling PR comments in a loop**.
-Your goal is to reduce actionable comments without leaving the RFC scope.
+Your goal is to reduce actionable comments without leaving the Spec scope.
 
 ## Idioma
 Read `project.language` from `.chama.yml`. Respond in the configured language. Default: pt-BR.
 
 ## Mandatory principles
 - Fix **only** comments that make technical sense and are in scope.
-- Do not leave the RFC.
+- Do not leave the Spec.
 - Do not do large unsolicited refactors.
-- If a comment is invalid or out of RFC scope, respond with objective justification.
+- If a comment is invalid or out of Spec scope, respond with objective justification.
 
 ## Configuration
 
@@ -32,7 +32,7 @@ REVIEWS_DIR="${CHAMA_REVIEWS_DIR:-$(yq '.artifacts.reviews_dir' .chama.yml 2>/de
   How many consecutive rounds without new actionable comments to stop.
 
 ## References
-- RFC from the PR (extracted from PR body or linked issue)
+- Spec from the PR (extracted from PR body or linked issue)
 
 ## 0) Quick setup
 
@@ -48,22 +48,22 @@ STATE_FILE="$REVIEWS_DIR/pr-${PR_NUMBER}-handled-comments.txt"
 touch "$STATE_FILE"
 ```
 
-## 1) Discover RFC and lock scope
-1. Extract RFC from PR body.
+## 1) Discover Spec and lock scope
+1. Extract Spec from PR body.
 2. If not found in PR, search linked issues.
 3. If still not found, stop and ask for human confirmation.
 
 ```bash
 PR_BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body')
-RFC_NUMBER=$(printf '%s\n' "$PR_BODY" | grep -oP '#\K\d+' | head -1)
+SPEC_NUMBER=$(printf '%s\n' "$PR_BODY" | grep -oP '#\K\d+' | head -1)
 
-if [ -n "$RFC_NUMBER" ]; then
-  gh issue view "$RFC_NUMBER" --repo "$REPO"
+if [ -n "$SPEC_NUMBER" ]; then
+  gh issue view "$SPEC_NUMBER" --repo "$REPO"
 fi
 ```
 
 Rule:
-- Everything not aligned with the RFC is **out of scope** in this iteration.
+- Everything not aligned with the Spec is **out of scope** in this iteration.
 
 ## 2) Review loop
 Execute from `ROUND=1` to `MAX_ROUNDS`.
@@ -83,18 +83,18 @@ gh api "repos/$REPO/issues/$PR_NUMBER/comments" > "$REVIEWS_DIR/pr-${PR_NUMBER}-
 
 ### 2.3 Classify A/B/C
 - `A` Mandatory: bug, regression, contract break, real risk.
-- `B` Valid small: safe improvement within the RFC.
-- `C` Do not apply: outside RFC, outdated, or without evidence.
+- `B` Valid small: safe improvement within the Spec.
+- `C` Do not apply: outside Spec, outdated, or without evidence.
 
 ### 2.4 Act per class
 - `A/B`: fix with small, traceable commits.
 - `C`: respond in the comment explaining objectively why it won't be applied.
 
-### 2.5 Scope guardrail (RFC)
+### 2.5 Scope guardrail (Spec)
 Before each fix, validate:
-- Is the change covered in the RFC?
+- Is the change covered in the Spec?
 - Does it not introduce broad restructuring?
-- Does it maintain RFC acceptance criteria?
+- Does it maintain Spec acceptance criteria?
 
 If not, don't implement; respond as `C`.
 
@@ -151,12 +151,12 @@ Register in progress file:
 - Comments handled (A/B/C)
 - What was fixed (commits)
 - What remains pending and why
-- If pending item is out of RFC scope
+- If pending item is out of Spec scope
 
 If stopped by `MAX_ROUNDS` and there are still pending items:
 - Leave a comment on the PR with pending items, risk and proposed next step (new issue/task).
 
 ## Expected result
 - PR with actionable comments reduced.
-- Scope preserved by the RFC.
+- Scope preserved by the Spec.
 - Loop executed with transparency and traceability.

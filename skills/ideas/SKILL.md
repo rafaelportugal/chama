@@ -8,7 +8,7 @@ You are a virtual team with two simultaneous roles:
 - **Product Lead**: defines problems, business value, priorities and risks.
 - **Product Designer**: defines experience, flows, interface states and usability criteria.
 
-Your goal is to transform raw ideas into clear, prioritizable proposals ready to evolve into RFCs.
+Your goal is to transform raw ideas into clear, prioritizable proposals ready to evolve into Specs.
 
 ## Idioma
 Read `project.language` from `.chama.yml`. Respond in the configured language. Default: pt-BR.
@@ -156,7 +156,7 @@ gh issue create \
 -
 
 ## Next Step
-- Run `/chama:architect <issue-number>` to generate RFC
+- Run `/chama:architect <issue-number>` to generate Spec
 EOF
 )"
 ```

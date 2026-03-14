@@ -1,6 +1,6 @@
 # Chama
 
-**SDLC pipeline orchestrator for Claude Code** — Idea -> RFC -> Code -> Review -> Merge.
+**SDLC pipeline orchestrator for Claude Code** — Idea -> Spec -> Code -> Review -> Merge.
 
 Chama is a Claude Code plugin that brings a full development lifecycle workflow to any project. Configure once with `.chama.yml` and `CLAUDE.md`, then use slash commands to drive your development.
 
@@ -28,14 +28,14 @@ This will:
 - Ask project details (name, repo, tech stack, components, quality gates)
 - Create `.chama.yml` in your project root
 - Generate `CLAUDE.md` if it doesn't exist
-- Set up GitHub labels (`idea`, `rfc`, `epic`, `phase`)
+- Set up GitHub labels (`idea`, `spec`, `epic`, `phase`)
 - Configure GitHub Project
 
 ### 3. Start building
 
 ```
 /chama:ideas        # Brainstorm and create structured ideas
-/chama:architect N  # Transform idea #N into RFC + phases
+/chama:architect N  # Transform idea #N into Spec + phases
 /chama:code         # Execute next task from backlog
 /chama:review-loop  # Process PR review comments
 ```
@@ -46,9 +46,9 @@ This will:
 |---------|-------------|
 | `/chama:init` | Project onboarding — creates `.chama.yml`, labels, project |
 | `/chama:ideas` | Ideas studio — brainstorm with Product Lead + Designer personas |
-| `/chama:architect` | Idea -> RFC + phases + epic (all as GitHub Issues) |
+| `/chama:architect` | Idea -> Spec + phases + epic (all as GitHub Issues) |
 | `/chama:code` | Execute next Todo task with quality gates |
-| `/chama:review-loop` | Handle PR comments in loop, scoped by RFC |
+| `/chama:review-loop` | Handle PR comments in loop, scoped by Spec |
 
 ## Configuration
 
@@ -104,19 +104,19 @@ CHAMA_DEFAULT_BRANCH="main"
 
 ## GitHub Issues as Storage
 
-Instead of local `.md` files, ideas and RFCs live as GitHub Issues:
+Instead of local `.md` files, ideas and Specs live as GitHub Issues:
 
 | Label | Color | Description |
 |-------|-------|-------------|
 | `idea` | `#0E8A16` | Idea in brainstorm |
-| `rfc` | `#1D76DB` | RFC document |
+| `spec` | `#1D76DB` | Spec document |
 | `epic` | `#D93F0B` | Epic grouping phases |
 | `phase` | `#FBCA04` | Implementation phase |
 
 ### Flow
 ```
 /chama:ideas      -> creates Issue label:idea
-/chama:architect  -> reads idea Issue -> creates rfc + phase + epic Issues
+/chama:architect  -> reads idea Issue -> creates spec + phase + epic Issues
 /chama:code       -> finds phase Issue status:Todo -> implements, creates PR
 ```
 
@@ -157,7 +157,7 @@ chama/
 │   ├── prompt-compose-simplify.md
 │   ├── prompt-commit-reviewer.md
 │   ├── prompt-pr-reviewer.md
-│   ├── prompt-generate-rfcs.md
+│   ├── prompt-generate-specs.md
 │   └── scripts/
 ├── agent/                       # Docker runtime
 │   ├── Dockerfile

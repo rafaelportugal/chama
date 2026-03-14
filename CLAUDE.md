@@ -13,7 +13,7 @@ Chama is a generic SDLC pipeline orchestrator that works with any project via `.
 ## Key patterns
 
 - All project-specific config comes from `.chama.yml` in the target project root
-- GitHub Issues are used as storage for ideas, RFCs, phases, and epics (no local files)
+- GitHub Issues are used as storage for ideas, Specs, phases, and epics (no local files)
 - Quality gates are dynamic, read from `.chama.yml` `tech_stack.components[].quality_gates`
 - Environment variables (`CHAMA_REPO`, `CHAMA_OWNER`, `CHAMA_PROJECT_NUMBER`) override `.chama.yml`
 - Multi-language support via `project.language` in `.chama.yml` (pt-BR or en)
@@ -23,7 +23,7 @@ Chama is a generic SDLC pipeline orchestrator that works with any project via `.
 ```
 /chama:init       -> onboard project (.chama.yml, labels, project)
 /chama:ideas      -> brainstorm -> GitHub Issue (label: idea)
-/chama:architect  -> idea Issue -> RFC Issue + phase Issues + epic Issue
+/chama:architect  -> idea Issue -> Spec Issue + phase Issues + epic Issue
 /chama:code       -> phase Issue (Todo) -> implement -> PR
 /chama:review-loop -> PR comments -> fix/respond -> merge
 ```

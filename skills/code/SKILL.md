@@ -23,7 +23,7 @@ DEFAULT_BRANCH="${CHAMA_DEFAULT_BRANCH:-$(yq '.github.default_branch' .chama.yml
 ## References
 - `.chama.yml` (project config, tech stack, quality gates)
 - `CLAUDE.md` (root and per-component — auto-loaded)
-- RFC: extracted from the issue body (section `## RFC`)
+- Spec: extracted from the issue body (section `## Spec`)
 
 ## Operational Rules
 - Execute **only 1 issue** per iteration.
@@ -74,23 +74,23 @@ ISSUE_NUMBER=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format jso
 gh issue view "$ISSUE_NUMBER" --repo "$REPO"
 ```
 
-Extract RFC from the issue body:
+Extract Spec from the issue body:
 
 ```bash
 ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body --jq '.body')
 
-# Extract RFC issue number from body
-RFC_NUMBER=$(printf '%s\n' "$ISSUE_BODY" \
+# Extract Spec issue number from body
+SPEC_NUMBER=$(printf '%s\n' "$ISSUE_BODY" \
   | grep -oP '#\K\d+' \
   | head -1)
 
-# Read RFC issue if referenced
-if [ -n "$RFC_NUMBER" ]; then
-  gh issue view "$RFC_NUMBER" --repo "$REPO"
+# Read Spec issue if referenced
+if [ -n "$SPEC_NUMBER" ]; then
+  gh issue view "$SPEC_NUMBER" --repo "$REPO"
 fi
 ```
 
-Read the RFC before implementing.
+Read the Spec before implementing.
 
 ## 2) Setup
 
@@ -112,7 +112,7 @@ Verify the task is `In Progress`. If not, STOP and show the error.
 
 ## 3) Implement
 
-- Follow the issue checklist + RFC requirements and acceptance criteria.
+- Follow the issue checklist + Spec requirements and acceptance criteria.
 - Do not expand scope without registering in the progress file.
 - Commit per logical block.
 - After each commit, trigger automatic commit review in parallel.
@@ -162,8 +162,8 @@ git push -u origin "$BRANCH_NAME"
 gh pr create --title "feat: [Issue #$ISSUE_NUMBER] <title>" \
   --body "Closes #$ISSUE_NUMBER
 
-## RFC
-- #$RFC_NUMBER
+## Spec
+- #$SPEC_NUMBER
 
 ## Summary
 <objective description>

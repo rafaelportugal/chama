@@ -93,12 +93,12 @@ create_pr() {
   {
     set -euo pipefail
 
-    # Extract RFC reference from issue body
+    # Extract Spec reference from issue body
     local issue_body
     issue_body=$(gh issue view "$issue_number" --repo "$REPO" --json body --jq '.body')
 
-    local rfc_ref
-    rfc_ref=$(printf '%s\n' "$issue_body" | grep -oP '#\K\d+' | head -1 || echo "")
+    local spec_ref
+    spec_ref=$(printf '%s\n' "$issue_body" | grep -oP '#\K\d+' | head -1 || echo "")
 
     # Extract issue title
     local issue_title
@@ -114,7 +114,7 @@ create_pr() {
       echo "Date: $(date '+%Y-%m-%d %H:%M')"
       echo "Issue: #$issue_number"
       echo "Branch: $branch_name"
-      echo "RFC: ${rfc_ref:+#$rfc_ref}"
+      echo "Spec: ${spec_ref:+#$spec_ref}"
       echo ""
       echo "Commits:"
       git log "$DEFAULT_BRANCH"..HEAD --pretty=format:'  %h %s' 2>/dev/null || true
@@ -132,8 +132,8 @@ create_pr() {
       --body "$(cat <<EOF
 Closes #$issue_number
 
-## RFC
-- ${rfc_ref:+#$rfc_ref}
+## Spec
+- ${spec_ref:+#$spec_ref}
 
 ## Summary
 $commit_summary

@@ -1,12 +1,12 @@
 {
   "name": "chama",
   "version": "1.0.0",
-  "description": "SDLC pipeline orchestrator — Idea -> RFC -> Code -> Review -> Merge",
+  "description": "SDLC pipeline orchestrator — Idea -> Spec -> Code -> Review -> Merge",
   "author": {
     "name": "Rafael Portugal",
     "url": "https://github.com/rafaelportugal"
   },
   "repository": "https://github.com/rafaelportugal/chama",
   "license": "MIT",
-  "keywords": ["sdlc", "workflow", "rfc", "github-issues", "pipeline", "orchestrator"]
+  "keywords": ["sdlc", "workflow", "spec", "github-issues", "pipeline", "orchestrator"]
 }

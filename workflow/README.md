@@ -10,7 +10,7 @@ Interactive commands live in `skills/` and are invoked as `/chama:init`, `/chama
 - `prompt-compose-simplify.md`: Code simplification adapted for `-p` mode.
 - `prompt-commit-reviewer.md`: Review of a specific commit.
 - `prompt-pr-reviewer.md`: PR review via `/code-review`.
-- `prompt-generate-rfcs.md`: Batch RFC generation from ideas.
+- `prompt-generate-specs.md`: Batch Spec generation from ideas.
 
 ## Scripts
 
@@ -74,7 +74,7 @@ All artifacts are stored under directories configured in `.chama.yml`:
 
 ## Scope rules
 
-- Implementation must follow the RFC.
-- Comments outside the RFC: respond with justification and don't implement.
+- Implementation must follow the Spec.
+- Comments outside the Spec: respond with justification and don't implement.
 - Avoid broad refactoring in execution routines.
 - Always register pending scope items, risks and trade-offs.
