@@ -1,0 +1,27 @@
+project:
+  name: "{{PROJECT_NAME}}"
+  description: "{{PROJECT_DESCRIPTION}}"
+  repo: "{{OWNER}}/{{REPO_NAME}}"
+  language: "{{LANGUAGE}}"              # "pt-BR" or "en"
+
+github:
+  owner: "{{OWNER}}"
+  project_number: {{PROJECT_NUMBER}}
+
+tech_stack:
+  summary: "{{TECH_SUMMARY}}"
+  components:
+    - name: "{{COMPONENT_NAME}}"
+      path: "{{COMPONENT_PATH}}"
+      quality_gates:
+        - "{{QUALITY_GATE_COMMAND}}"
+
+artifacts:
+  progress_dir: ".chama/progress"
+  reviews_dir: ".chama/reviews"
+
+personas:
+  - name: "{{PERSONA_NAME}}"
+    description: "{{PERSONA_DESCRIPTION}}"
+
+business_segment: "{{BUSINESS_SEGMENT}}"

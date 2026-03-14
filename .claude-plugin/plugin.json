@@ -1,0 +1,5 @@
+{
+  "name": "chama",
+  "description": "SDLC pipeline orchestrator — Idea -> RFC -> Code -> Review -> Merge. Configure per-project via .chama.yml.",
+  "author": { "name": "Rafael Portugal" }
+}

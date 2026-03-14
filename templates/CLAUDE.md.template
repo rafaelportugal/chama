@@ -1,0 +1,31 @@
+# {{PROJECT_NAME}}
+
+{{PROJECT_DESCRIPTION}}
+
+## Tech Stack
+
+{{TECH_SUMMARY}}
+
+## Development Workflow
+
+This project uses [Chama](https://github.com/rafaelportugal/chama) for SDLC orchestration.
+
+Available commands:
+- `/chama-ideas` — Brainstorm and create structured ideas (stored as GitHub Issues)
+- `/chama-architect` — Transform an idea into RFC + implementation phases
+- `/chama-code` — Execute the next task from the backlog
+- `/chama-review-loop` — Process PR review comments in a loop
+
+## Project Structure
+
+{{STRUCTURE_NOTES}}
+
+## Quality Gates
+
+Run before committing:
+
+{{QUALITY_GATES}}
+
+## Conventions
+
+{{CONVENTIONS}}
