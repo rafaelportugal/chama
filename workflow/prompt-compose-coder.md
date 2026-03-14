@@ -10,6 +10,7 @@ Read project configuration from `.chama.yml`:
 REPO="${CHAMA_REPO:-$(yq '.project.repo' .chama.yml 2>/dev/null)}"
 OWNER="${CHAMA_OWNER:-$(yq '.github.owner' .chama.yml 2>/dev/null)}"
 PROJECT_NUM="${CHAMA_PROJECT_NUMBER:-$(yq '.github.project_number' .chama.yml 2>/dev/null)}"
+DEFAULT_BRANCH="${CHAMA_DEFAULT_BRANCH:-$(yq '.github.default_branch' .chama.yml 2>/dev/null || echo 'main')}"
 ```
 
 ## References
@@ -131,7 +132,7 @@ COMPONENTS=$(yq '.tech_stack.components[].name' .chama.yml 2>/dev/null)
 for COMPONENT in $COMPONENTS; do
   COMPONENT_PATH=$(yq ".tech_stack.components[] | select(.name == \"$COMPONENT\") | .path" .chama.yml 2>/dev/null)
 
-  if git diff main --name-only | grep -q "^$COMPONENT_PATH"; then
+  if git diff "$DEFAULT_BRANCH" --name-only | grep -q "^$COMPONENT_PATH"; then
     echo "Running quality gates for $COMPONENT..."
     GATES=$(yq ".tech_stack.components[] | select(.name == \"$COMPONENT\") | .quality_gates[]" .chama.yml 2>/dev/null)
     while IFS= read -r gate; do

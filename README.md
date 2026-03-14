@@ -70,6 +70,7 @@ project:
 github:
   owner: "owner"
   project_number: 1
+  default_branch: "main"             # "main", "dev", etc.
 
 tech_stack:
   summary: "Go backend + Next.js frontend"
@@ -102,6 +103,7 @@ business_segment: "SaaS"
 CHAMA_REPO="owner/repo"
 CHAMA_OWNER="owner"
 CHAMA_PROJECT_NUMBER="1"
+CHAMA_DEFAULT_BRANCH="main"
 ```
 
 ## GitHub Issues as Storage

@@ -3,7 +3,7 @@
 Review the changed code on the current branch for clarity, consistency and maintainability, preserving **all** existing functionality.
 
 ## Scope
-- Focus **only** on files changed in this branch compared to `main`.
+- Focus **only** on files changed in this branch compared to the default branch (read `github.default_branch` from `.chama.yml`, fallback: `main`).
 - Respect the patterns of each component as defined in `CLAUDE.md` files.
 
 ## What to check
@@ -28,7 +28,8 @@ Review the changed code on the current branch for clarity, consistency and maint
 
 1. List changed files:
 ```bash
-git diff main --name-only
+DEFAULT_BRANCH="${CHAMA_DEFAULT_BRANCH:-$(yq '.github.default_branch' .chama.yml 2>/dev/null || echo 'main')}"
+git diff "$DEFAULT_BRANCH" --name-only
 ```
 
 2. Review each changed file, applying the checks above.
@@ -40,7 +41,7 @@ COMPONENTS=$(yq '.tech_stack.components[].name' .chama.yml 2>/dev/null)
 for COMPONENT in $COMPONENTS; do
   COMPONENT_PATH=$(yq ".tech_stack.components[] | select(.name == \"$COMPONENT\") | .path" .chama.yml 2>/dev/null)
 
-  if git diff main --name-only | grep -q "^$COMPONENT_PATH"; then
+  if git diff "$DEFAULT_BRANCH" --name-only | grep -q "^$COMPONENT_PATH"; then
     echo "Running quality gates for $COMPONENT..."
     GATES=$(yq ".tech_stack.components[] | select(.name == \"$COMPONENT\") | .quality_gates[]" .chama.yml 2>/dev/null)
     while IFS= read -r gate; do

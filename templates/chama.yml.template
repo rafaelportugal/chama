@@ -7,6 +7,7 @@ project:
 github:
   owner: "{{OWNER}}"
   project_number: {{PROJECT_NUMBER}}
+  default_branch: "{{DEFAULT_BRANCH}}"    # "main", "dev", etc.
 
 tech_stack:
   summary: "{{TECH_SUMMARY}}"

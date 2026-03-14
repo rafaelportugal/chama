@@ -34,6 +34,7 @@ OWNER="${CHAMA_OWNER:-$(yq '.github.owner' "$ROOT_DIR/.chama.yml" 2>/dev/null ||
 PROJECT_NUM="${CHAMA_PROJECT_NUMBER:-$(yq '.github.project_number' "$ROOT_DIR/.chama.yml" 2>/dev/null || echo '1')}"
 PROGRESS_DIR="${CHAMA_PROGRESS_DIR:-$(yq '.artifacts.progress_dir' "$ROOT_DIR/.chama.yml" 2>/dev/null || echo '.chama/progress')}"
 REVIEWS_DIR="${CHAMA_REVIEWS_DIR:-$(yq '.artifacts.reviews_dir' "$ROOT_DIR/.chama.yml" 2>/dev/null || echo '.chama/reviews')}"
+DEFAULT_BRANCH="${CHAMA_DEFAULT_BRANCH:-$(yq '.github.default_branch' "$ROOT_DIR/.chama.yml" 2>/dev/null || echo 'main')}"
 
 LOG_DIR="$ROOT_DIR/$PROGRESS_DIR"
 RUN_ID="$(date +%Y%m%d-%H%M%S)"
@@ -105,7 +106,7 @@ create_pr() {
 
     # Build commit summary from branch commits
     local commit_summary
-    commit_summary=$(git log "main"..HEAD --pretty=format:'- %s' 2>/dev/null || echo "- implementation commits")
+    commit_summary=$(git log "$DEFAULT_BRANCH"..HEAD --pretty=format:'- %s' 2>/dev/null || echo "- implementation commits")
 
     # Progress file
     local progress_file="$LOG_DIR/$(date +%Y%m%d-%H%M)-${branch_name//\//-}.txt"
@@ -116,7 +117,7 @@ create_pr() {
       echo "RFC: ${rfc_ref:+#$rfc_ref}"
       echo ""
       echo "Commits:"
-      git log "main"..HEAD --pretty=format:'  %h %s' 2>/dev/null || true
+      git log "$DEFAULT_BRANCH"..HEAD --pretty=format:'  %h %s' 2>/dev/null || true
     } > "$progress_file"
     echo "Progress file: $progress_file"
 
@@ -233,8 +234,8 @@ for TASK_NUM in $(seq 1 "$MAX_TASKS"); do
     exit 1
   fi
 
-  git checkout "main"
-  git pull --rebase origin "main"
+  git checkout "$DEFAULT_BRANCH"
+  git pull --rebase origin "$DEFAULT_BRANCH"
 
   # ── Phase 1: CODER (Claude) ──────────────────────────────────────────────
   log "[Phase 1/5] CODER started..."
@@ -250,9 +251,9 @@ for TASK_NUM in $(seq 1 "$MAX_TASKS"); do
 
   # Validate: must have commits and be on a feature branch
   BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
-  COMMIT_COUNT=$(git rev-list "main"..HEAD --count 2>/dev/null || echo "0")
+  COMMIT_COUNT=$(git rev-list "$DEFAULT_BRANCH"..HEAD --count 2>/dev/null || echo "0")
 
-  if [[ "$BRANCH_NAME" == "main" ]]; then
+  if [[ "$BRANCH_NAME" == "$DEFAULT_BRANCH" ]]; then
     log "ERROR: CODER did not create feature branch. See: $CODER_LOG"
     exit 1
   fi
@@ -350,8 +351,8 @@ for TASK_NUM in $(seq 1 "$MAX_TASKS"); do
 
   if [[ "$PR_STATE" == "MERGED" ]]; then
     log "Task $TASK_NUM | Issue #${ISSUE_NUMBER:-?} | PR #$PR_NUMBER | MERGED | ${DURATION}s"
-    git checkout "main"
-    git pull --rebase origin "main"
+    git checkout "$DEFAULT_BRANCH"
+    git pull --rebase origin "$DEFAULT_BRANCH"
   else
     log "Task $TASK_NUM | Issue #${ISSUE_NUMBER:-?} | PR #$PR_NUMBER | $PR_STATE | ${DURATION}s"
 
@@ -361,8 +362,8 @@ for TASK_NUM in $(seq 1 "$MAX_TASKS"); do
     fi
 
     log "STOP_ON_REVIEW_FAILURE=false — cleaning up and continuing..."
-    git checkout "main"
-    git pull --rebase origin "main"
+    git checkout "$DEFAULT_BRANCH"
+    git pull --rebase origin "$DEFAULT_BRANCH"
   fi
 done
 

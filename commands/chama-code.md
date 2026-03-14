@@ -13,6 +13,7 @@ OWNER="${CHAMA_OWNER:-$(yq '.github.owner' .chama.yml 2>/dev/null)}"
 PROJECT_NUM="${CHAMA_PROJECT_NUMBER:-$(yq '.github.project_number' .chama.yml 2>/dev/null)}"
 PROGRESS_DIR="${CHAMA_PROGRESS_DIR:-$(yq '.artifacts.progress_dir' .chama.yml 2>/dev/null || echo '.chama/progress')}"
 REVIEWS_DIR="${CHAMA_REVIEWS_DIR:-$(yq '.artifacts.reviews_dir' .chama.yml 2>/dev/null || echo '.chama/reviews')}"
+DEFAULT_BRANCH="${CHAMA_DEFAULT_BRANCH:-$(yq '.github.default_branch' .chama.yml 2>/dev/null || echo 'main')}"
 ```
 
 ## References
@@ -131,7 +132,7 @@ for COMPONENT in $COMPONENTS; do
   COMPONENT_PATH=$(yq ".tech_stack.components[] | select(.name == \"$COMPONENT\") | .path" .chama.yml 2>/dev/null)
 
   # Check if any files were changed in this component
-  if git diff main --name-only | grep -q "^$COMPONENT_PATH"; then
+  if git diff "$DEFAULT_BRANCH" --name-only | grep -q "^$COMPONENT_PATH"; then
     echo "Running quality gates for $COMPONENT..."
     GATES=$(yq ".tech_stack.components[] | select(.name == \"$COMPONENT\") | .quality_gates[]" .chama.yml 2>/dev/null)
     while IFS= read -r gate; do

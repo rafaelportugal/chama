@@ -26,6 +26,7 @@ Ask the user (batch questions, max 2 rounds):
 6. **Personas** — who uses the system? (name + short description)
 7. **Business segment** (e.g., "SaaS", "HealthTech", "E-commerce")
 8. **Language** — `pt-BR` or `en`
+9. **Default branch** — `main`, `dev`, etc. (default: `main`)
 
 ## Step 2 — GitHub Project
 
@@ -67,6 +68,7 @@ project:
 github:
   owner: "<owner>"
   project_number: <number>
+  default_branch: "<main>"              # "main", "dev", etc.
 
 tech_stack:
   summary: "<summary>"
