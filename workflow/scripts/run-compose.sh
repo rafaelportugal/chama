@@ -165,7 +165,9 @@ EOF
 
     # Wait for CI
     echo "Waiting for CI checks..."
-    gh pr checks "$pr_number" --watch || true
+    if ! gh pr checks "$pr_number" --watch; then
+      echo "WARNING: Some CI checks failed for PR #$pr_number."
+    fi
 
     echo "PR_NUMBER=$pr_number"
   } 2>&1 | tee "$phase_log"
@@ -180,7 +182,7 @@ for f in "$CODER_PROMPT" "$SIMPLIFY_PROMPT" "$PR_REVIEWER_PROMPT" "$REVIEW_LOOP_
   fi
 done
 
-for cmd in gh jq; do
+for cmd in gh jq yq; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "$cmd not found." >&2
     exit 1

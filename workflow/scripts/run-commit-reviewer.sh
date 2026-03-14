@@ -32,13 +32,13 @@ sed "s/__COMMIT_SHA__/${COMMIT_SHA}/g" "$PROMPT_TEMPLATE" >"$TMP_PROMPT"
 
 run_reviewer() {
   if command -v claude >/dev/null 2>&1; then
-    claude -p "$(cat "$TMP_PROMPT")" --allow-dangerously-skip-permissions
+    claude -p "$(cat "$TMP_PROMPT")" --dangerously-skip-permissions
     return 0
   fi
 
   if [[ -f "$CHAMA_DIR/agent/docker-compose.yml" ]] && command -v docker >/dev/null 2>&1; then
     docker compose -f "$CHAMA_DIR/agent/docker-compose.yml" exec -T agent-container \
-      claude -p "$(cat "$TMP_PROMPT")" --allow-dangerously-skip-permissions
+      claude -p "$(cat "$TMP_PROMPT")" --dangerously-skip-permissions
     return 0
   fi
 

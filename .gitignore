@@ -1,0 +1,4 @@
+.chama/
+*.pid
+*.status
+agent/.gh-app-key.pem
