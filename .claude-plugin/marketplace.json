@@ -1,8 +1,18 @@
 {
+  "name": "chama",
+  "owner": {
+    "name": "Rafael Portugal",
+    "email": "rafaelportugal@users.noreply.github.com"
+  },
+  "metadata": {
+    "description": "SDLC pipeline orchestrator — Idea -> Spec -> Code -> Review -> Merge"
+  },
   "plugins": [
     {
       "name": "chama",
-      "path": "."
+      "description": "SDLC pipeline orchestrator — Idea -> Spec -> Code -> Review -> Merge",
+      "version": "1.0.0",
+      "source": "./"
     }
   ]
 }
