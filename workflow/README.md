@@ -17,7 +17,7 @@ Interactive commands live in `skills/` and are invoked as `/chama:init`, `/chama
 - `scripts/install-hooks.sh`: Install local git hooks.
 - `scripts/run-commit-reviewer.sh`: Trigger commit reviewer (foreground/background).
 - `scripts/run-pr-reviewer.sh`: Trigger PR reviewer (foreground/background).
-- `scripts/run-compose.sh`: Orchestrate the full 5-phase cycle.
+- `scripts/chama-pipeline.sh`: Orchestrate the full 5-phase cycle.
 
 ## Compose orchestration
 
@@ -25,13 +25,13 @@ After ideas and architecture are done, run compose to process multiple tasks:
 
 ```bash
 # Process up to 3 tasks (default)
-chama-compose
+chama-pipeline
 
 # Process up to 5 tasks, with up to 6 review rounds each
-MAX_TASKS=5 MAX_REVIEW_ROUNDS=6 chama-compose
+MAX_TASKS=5 MAX_REVIEW_ROUNDS=6 chama-pipeline
 
 # Continue even if review fails on a task
-STOP_ON_REVIEW_FAILURE=false chama-compose
+STOP_ON_REVIEW_FAILURE=false chama-pipeline
 ```
 
 The compose orchestrates 5 phases per task:

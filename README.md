@@ -133,7 +133,7 @@ For automated execution without manual intervention:
 chama-compose
 
 # Or directly
-bash chama/workflow/scripts/run-compose.sh
+bash chama/workflow/scripts/chama-pipeline.sh
 ```
 
 The compose orchestrator runs 5 phases per task:

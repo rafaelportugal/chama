@@ -21,7 +21,7 @@ Isolated Docker runtime for executing AI agents (`claude` and `amp`) with elevat
         ├── prompt-compose-coder.md
         ├── prompt-compose-simplify.md
         └── scripts/
-            └── run-compose.sh
+            └── chama-pipeline.sh
 
 ## Setup
 
@@ -54,14 +54,14 @@ Credentials are persisted in the `agent-home` Docker volume.
 
 ### Option B — GitHub App (automatic, headless)
 
-Ideal for `run-compose.sh` executions without manual intervention.
+Ideal for `chama-pipeline.sh` executions without manual intervention.
 
 1. Create a GitHub App with permissions: `contents: write`, `issues: write`, `pull_requests: write`, `projects: read+write`
 2. Install the app on your repo
 3. Save the private key as `chama/agent/.gh-app-key.pem` (already in `.gitignore`)
 4. Set `GITHUB_APP_ID` in the environment
 
-The `run-compose.sh` script auto-detects the configuration and generates a `GH_TOKEN` via `gh-token`.
+The `chama-pipeline.sh` script auto-detects the configuration and generates a `GH_TOKEN` via `gh-token`.
 
 ### Comparison
 
@@ -70,7 +70,7 @@ The `run-compose.sh` script auto-detects the configuration and generates a `GH_T
 | Validity | Indefinite | 1 hour (auto-expires) |
 | Scope | Broad (all user orgs) | Restricted (app permissions) |
 | Setup | Simple — interactive login | Medium — create app + private key |
-| Best for | Local dev, personal use | Headless automation (`run-compose.sh`) |
+| Best for | Local dev, personal use | Headless automation (`chama-pipeline.sh`) |
 
 ## Shell configuration (bash / zsh)
 
@@ -108,8 +108,8 @@ chama-amp() {
   cat "$prompt_file" | chama-agentp amp --dangerously-allow-all
 }
 
-chama-compose() {
-  local compose_script="chama/workflow/scripts/run-compose.sh"
+chama-pipeline() {
+  local compose_script="chama/workflow/scripts/chama-pipeline.sh"
   if [ ! -f "$compose_script" ]; then
     echo "Compose script not found: $compose_script"
     return 1
