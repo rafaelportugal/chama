@@ -48,8 +48,6 @@ For each path in `KNOWLEDGE_PATHS`:
 ```bash
 FILES=$(find "$KPATH" -type f \( -name "*.md" -o -name "*.yml" -o -name "*.yaml" -o -name "*.txt" \) 2>/dev/null)
 FILE_COUNT=$(echo "$FILES" | grep -c . 2>/dev/null || echo 0)
-TOTAL_KB=$(echo "$FILES" | xargs du -k 2>/dev/null | tail -1 | awk '{print $1}')
-# For individual files, sum their sizes:
 TOTAL_KB=$(echo "$FILES" | xargs du -k 2>/dev/null | awk '{s+=$1} END {print s+0}')
 ```
 3. **Apply progressive strategy**:
