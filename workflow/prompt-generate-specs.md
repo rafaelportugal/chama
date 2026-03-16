@@ -8,123 +8,37 @@ Read the idea source (GitHub Issue or file).
 REPO="${CHAMA_REPO:-$(yq '.project.repo' .chama.yml 2>/dev/null)}"
 ```
 
+## Resolve Spec template
+
+Use the following resolution logic to load the Spec template:
+
+```bash
+if [ -f ".chama/templates/spec.md" ]; then
+  SPEC_TEMPLATE=$(cat ".chama/templates/spec.md")
+else
+  # Discover chama plugin path (local or installed)
+  if [ -d "chama/templates" ]; then
+    CHAMA_PLUGIN_DIR="chama"
+  elif [ -d "$HOME/.claude/plugins/chama/templates" ]; then
+    CHAMA_PLUGIN_DIR="$HOME/.claude/plugins/chama"
+  elif CACHE_DIR=$(find "$HOME/.claude" -maxdepth 3 -type d -name "chama" -path "*/plugins/*" 2>/dev/null | head -1) && [ -n "$CACHE_DIR" ]; then
+    CHAMA_PLUGIN_DIR="$CACHE_DIR"
+  else
+    echo "ERROR: Could not find chama plugin directory"
+    exit 1
+  fi
+  SPEC_TEMPLATE=$(cat "$CHAMA_PLUGIN_DIR/templates/spec.md.default")
+fi
+```
+
+Read the resolved `SPEC_TEMPLATE` content and use it as the structure for each Spec Issue. Fill in each section based on the idea content.
+
+## Create Spec Issues
+
 For each idea, create a Spec as a GitHub Issue with label `spec`:
 
 ```bash
-gh issue create --repo "$REPO" --label "spec" --title "spec: <Title>" --body "<Spec body>"
-```
-
-## Spec Structure
-
-Each Spec Issue should follow this template:
-
-```markdown
-# Spec: Feature Name
-
----
-
-## 1. Context
-
-### What this section answers
-- What problem exists today?
-- Why does this matter for the business and the system?
-- What is missing in the current state?
-
-Focus **exclusively on the problem**, without discussing solutions.
-
----
-
-## 2. Objective
-
-### What this section answers
-- What do we want to achieve with this Spec?
-- How will we know the initiative was successful?
-
-Describe the **expected result**, not the implementation.
-
----
-
-## 3. Scope
-
-#### Includes
-- ...
-
-#### Does not include
-- ...
-
----
-
-## 4. Personas / Impacted Users
-
-- **Role**: Description of how they're impacted
-
----
-
-## 5. Functional Requirements
-
-- RF1: ...
-- RF2: ...
-
----
-
-## 6. Non-Functional Requirements
-
-- Performance
-- Security
-- Observability
-- Scalability
-
----
-
-## 7. Main Flows
-
-### Flow name
-1. Step 1
-2. Step 2
-
----
-
-## 8. Dependencies
-
-- ...
-
----
-
-## 9. Risks and Trade-offs
-
-- ...
-
----
-
-## 10. Success Metrics
-
-- ...
-
----
-
-## 11. Acceptance Criteria
-
-- [ ] ...
-
----
-
-## 12. Technical Details
-
-Include SQL schema, models, endpoints as needed.
-
----
-
-## 13. Open Questions
-
-- ...
-
----
-
-## 14. Status
-
-- **Author**: ...
-- **Date**: YYYY-MM-DD
-- **State**: Draft
+gh issue create --repo "$REPO" --label "spec" --title "spec: <Title>" --body "$SPEC_BODY"
 ```
 
 When all ideas have been converted to Specs, stop.
