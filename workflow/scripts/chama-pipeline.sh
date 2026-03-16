@@ -194,12 +194,28 @@ for f in "$CODER_PROMPT" "$SIMPLIFY_PROMPT" "$PR_REVIEWER_PROMPT" "$REVIEW_LOOP_
   fi
 done
 
-for cmd in gh jq yq; do
+# ─── Dependency check ────────────────────────────────────────────────────────
+MISSING_DEPS=()
+for cmd in gh jq yq claude; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "$cmd not found." >&2
-    exit 1
+    MISSING_DEPS+=("$cmd")
   fi
 done
+
+if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
+  echo "ERROR: Missing required dependencies: ${MISSING_DEPS[*]}" >&2
+  echo "" >&2
+  echo "Install guide:" >&2
+  for dep in "${MISSING_DEPS[@]}"; do
+    case "$dep" in
+      gh)     echo "  gh     → https://cli.github.com/  (brew install gh)" >&2 ;;
+      jq)     echo "  jq     → https://jqlang.github.io/jq/  (brew install jq)" >&2 ;;
+      yq)     echo "  yq     → https://github.com/mikefarah/yq  (brew install yq)" >&2 ;;
+      claude) echo "  claude → https://docs.anthropic.com/en/docs/claude-code  (npm install -g @anthropic-ai/claude-code)" >&2 ;;
+    esac
+  done
+  exit 1
+fi
 
 if [[ -z "$REPO" || "$REPO" == "null" ]]; then
   echo "ERROR: project.repo not configured. Run /init or set CHAMA_REPO." >&2
