@@ -28,7 +28,7 @@ This will:
 - Ask project details (name, repo, tech stack, components, quality gates)
 - Create `.chama.yml` in your project root
 - Generate `CLAUDE.md` if it doesn't exist
-- Set up GitHub labels (`idea`, `spec`, `epic`, `phase`)
+- Set up GitHub labels (`idea`, `spec`, `phase`)
 - Configure GitHub Project
 
 ### 3. Start building
@@ -46,7 +46,7 @@ This will:
 |---------|-------------|
 | `/chama:init` | Project onboarding — creates `.chama.yml`, labels, project |
 | `/chama:ideas` | Ideas studio — brainstorm with Product Lead + Designer personas |
-| `/chama:architect` | Idea -> Spec + phases + epic (all as GitHub Issues) |
+| `/chama:architect` | Idea -> Spec + phases (all as GitHub Issues) |
 | `/chama:code` | Execute next Todo task with quality gates |
 | `/chama:review-loop` | Handle PR comments in loop, scoped by Spec |
 
@@ -67,6 +67,11 @@ github:
   owner: "owner"
   project_number: 1
   default_branch: "main"             # "main", "dev", etc.
+  board_statuses:                    # optional — customize to match your board
+    todo: "Todo"
+    in_progress: "In Progress"
+    in_review: "In Review"
+    done: "Done"
 
 tech_stack:
   summary: "Go backend + Next.js frontend"
@@ -110,13 +115,12 @@ Instead of local `.md` files, ideas and Specs live as GitHub Issues:
 |-------|-------|-------------|
 | `idea` | `#0E8A16` | Idea in brainstorm |
 | `spec` | `#1D76DB` | Spec document |
-| `epic` | `#D93F0B` | Epic grouping phases |
 | `phase` | `#FBCA04` | Implementation phase |
 
 ### Flow
 ```
 /chama:ideas      -> creates Issue label:idea
-/chama:architect  -> reads idea Issue -> creates spec + phase + epic Issues
+/chama:architect  -> reads idea Issue -> creates spec + phase Issues
 /chama:code       -> finds phase Issue status:Todo -> implements, creates PR
 ```
 

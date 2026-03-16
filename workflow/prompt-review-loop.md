@@ -17,6 +17,9 @@ OWNER="${CHAMA_OWNER:-$(yq '.github.owner' .chama.yml 2>/dev/null)}"
 PROJECT_NUM="${CHAMA_PROJECT_NUMBER:-$(yq '.github.project_number' .chama.yml 2>/dev/null)}"
 REVIEWS_DIR="${CHAMA_REVIEWS_DIR:-$(yq '.artifacts.reviews_dir' .chama.yml 2>/dev/null || echo '.chama/reviews')}"
 DEFAULT_BRANCH="${CHAMA_DEFAULT_BRANCH:-$(yq '.github.default_branch' .chama.yml 2>/dev/null || echo 'main')}"
+
+# Board statuses (configurable via .chama.yml, with defaults)
+STATUS_DONE=$(yq '.github.board_statuses.done // "Done"' .chama.yml 2>/dev/null || echo 'Done')
 ```
 
 ## Mandatory principles
@@ -147,7 +150,7 @@ if [ -n "$ISSUE_NUMBER" ]; then
   FIELD_ID=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json \
     | jq -r '.fields[] | select(.name == "Status") | .id')
   OPTION_ID_DONE=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json \
-    | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "Done") | .id')
+    | jq -r --arg status "$STATUS_DONE" '.fields[] | select(.name == "Status") | .options[] | select(.name == $status) | .id')
   gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" \
     --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID_DONE"
 fi

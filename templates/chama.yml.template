@@ -8,6 +8,11 @@ github:
   owner: "{{OWNER}}"
   project_number: {{PROJECT_NUMBER}}
   default_branch: "{{DEFAULT_BRANCH}}"    # "main", "dev", etc.
+  board_statuses:                         # optional — customize to match your board
+    todo: "Todo"
+    in_progress: "In Progress"
+    in_review: "In Review"
+    done: "Done"
 
 tech_stack:
   summary: "{{TECH_SUMMARY}}"

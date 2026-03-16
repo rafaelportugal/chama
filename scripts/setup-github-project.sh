@@ -37,7 +37,6 @@ create_label() {
 
 create_label "idea"  "0E8A16" "Idea in brainstorm"
 create_label "spec"  "1D76DB" "Spec document"
-create_label "epic"  "D93F0B" "Epic grouping phases"
 create_label "phase" "FBCA04" "Implementation phase"
 
 echo "Done. Labels ready for $REPO."

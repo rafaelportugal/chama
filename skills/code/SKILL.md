@@ -18,6 +18,11 @@ PROJECT_NUM="${CHAMA_PROJECT_NUMBER:-$(yq '.github.project_number' .chama.yml 2>
 PROGRESS_DIR="${CHAMA_PROGRESS_DIR:-$(yq '.artifacts.progress_dir' .chama.yml 2>/dev/null || echo '.chama/progress')}"
 REVIEWS_DIR="${CHAMA_REVIEWS_DIR:-$(yq '.artifacts.reviews_dir' .chama.yml 2>/dev/null || echo '.chama/reviews')}"
 DEFAULT_BRANCH="${CHAMA_DEFAULT_BRANCH:-$(yq '.github.default_branch' .chama.yml 2>/dev/null || echo 'main')}"
+
+# Board statuses (configurable via .chama.yml, with defaults)
+STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' .chama.yml 2>/dev/null || echo 'Todo')
+STATUS_IN_PROGRESS=$(yq '.github.board_statuses.in_progress // "In Progress"' .chama.yml 2>/dev/null || echo 'In Progress')
+STATUS_IN_REVIEW=$(yq '.github.board_statuses.in_review // "In Review"' .chama.yml 2>/dev/null || echo 'In Review')
 ```
 
 ## References
@@ -45,16 +50,14 @@ If `gh auth status` fails, stop and request authentication.
 ## 1) Identify Next Task
 
 Select `Todo` issue from the Project, ordering by `priority` and then by number.
-Avoid picking `epic` type issues.
 
 ```bash
 ISSUE_NUMBER=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json \
-  | jq -r '
+  | jq -r --arg status "$STATUS_TODO" '
     [.items[]
       | select(.content)
       | select(.content.type == "Issue")
-      | select(.status == "Todo")
-      | select((.content.title | ascii_downcase | startswith("epic:")) | not)
+      | select(.status == $status)
       | {
           number: .content.number,
           priority_rank: (
@@ -94,7 +97,7 @@ Read the Spec before implementing.
 
 ## 2) Setup
 
-Create branch and move item to `In progress`.
+Create branch and move item to `$STATUS_IN_PROGRESS`.
 
 ```bash
 BRANCH_NAME="feat/issue-$ISSUE_NUMBER"
@@ -103,12 +106,12 @@ git checkout -b "$BRANCH_NAME"
 PROJECT_ID=$(gh project list --owner "$OWNER" --format json | jq -r ".projects[] | select(.number == $PROJECT_NUM) | .id")
 ITEM_ID=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r ".items[] | select(.content.number == $ISSUE_NUMBER) | .id")
 FIELD_ID=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .id')
-OPTION_ID_IN_PROGRESS=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "In progress") | .id')
+OPTION_ID_IN_PROGRESS=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r --arg status "$STATUS_IN_PROGRESS" '.fields[] | select(.name == "Status") | .options[] | select(.name == $status) | .id')
 
 gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID_IN_PROGRESS"
 ```
 
-Verify the task is `In Progress`. If not, STOP and show the error.
+Verify the task is in `$STATUS_IN_PROGRESS`. If not, STOP and show the error.
 
 ## 3) Implement
 
@@ -174,7 +177,7 @@ gh pr create --title "feat: [Issue #$ISSUE_NUMBER] <title>" \
 PR_NUMBER=$(gh pr view --json number --jq '.number')
 
 # Move item to "In Review"
-OPTION_ID_IN_REVIEW=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "In Review") | .id')
+OPTION_ID_IN_REVIEW=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r --arg status "$STATUS_IN_REVIEW" '.fields[] | select(.name == "Status") | .options[] | select(.name == $status) | .id')
 gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID_IN_REVIEW"
 ```
 
