@@ -31,6 +31,47 @@ Chama is a generic SDLC pipeline orchestrator that works with any project via `.
 /chama:review-loop -> PR comments -> fix/respond -> merge
 ```
 
+## Versioning
+
+This project uses automatic versioning tied to the Spec lifecycle. The version in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` always reflects the current pipeline state.
+
+**Schema:** `MAJOR.MINOR.PATCH-draft.N` (semver + draft suffix). Draft versions indicate work-in-progress; stable versions (no suffix) indicate a completed Spec.
+
+**Constraint:** Only one Spec may be active at a time. Do not start a new Spec while another has draft versions in progress.
+
+### When to bump
+
+#### 1. Architect creates a Spec (`/chama:architect`)
+
+1. Read the current stable version (ignore any `-draft.*` suffix) from `.claude-plugin/plugin.json`.
+2. Increment the minor: if stable is `1.2.0`, next minor is `1.3.0`.
+3. Add the field `**Version:** X.Y.x` (e.g., `**Version:** 1.3.x`) to the Spec issue body.
+4. Run: `scripts/bump-version.sh X.Y.0-draft.0` (e.g., `scripts/bump-version.sh 1.3.0-draft.0`).
+
+#### 2. Phase completed (`/chama:review-loop`)
+
+When a phase is moved to Done:
+
+1. Count the total number of closed/Done phases for this Spec (N).
+2. Run: `scripts/bump-version.sh X.Y.0-draft.N` (e.g., if 2 phases are done: `scripts/bump-version.sh 1.3.0-draft.2`).
+
+#### 3. Spec closed (last phase completed)
+
+When the last phase of a Spec is completed and the Spec is auto-closed:
+
+1. Run: `scripts/bump-version.sh X.Y.0` (e.g., `scripts/bump-version.sh 1.3.0`) — no draft suffix.
+
+### Calculation rules
+
+- The **minor** is always based on the latest stable version (without `-draft.*` suffix). To find it: read the version from `plugin.json`, strip any `-draft.*` suffix, then increment minor.
+- The **draft count** (N) equals the number of phases with status Done for the current Spec.
+- The **patch** is always `0` (patch bumps are not used in the Spec lifecycle).
+- Rollback: reopening a phase does not decrement the version.
+
+### Script reference
+
+`scripts/bump-version.sh <version>` — reads `versioning.files` from `.chama.yml`, updates the `version` field in each configured JSON file, and creates a commit (`chore: bump version to <version>`). The script is idempotent: running it twice with the same version produces no error and no duplicate commit.
+
 ## When editing this plugin
 
 - Skills in `skills/` should read config from `.chama.yml`, never hardcode repo/owner/project
