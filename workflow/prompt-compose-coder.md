@@ -13,8 +13,8 @@ PROJECT_NUM="${CHAMA_PROJECT_NUMBER:-$(yq '.github.project_number' .chama.yml 2>
 DEFAULT_BRANCH="${CHAMA_DEFAULT_BRANCH:-$(yq '.github.default_branch' .chama.yml 2>/dev/null || echo 'main')}"
 
 # Board statuses (configurable via .chama.yml, with defaults)
-STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' .chama.yml 2>/dev/null)
-STATUS_IN_PROGRESS=$(yq '.github.board_statuses.in_progress // "In Progress"' .chama.yml 2>/dev/null)
+STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' .chama.yml 2>/dev/null || echo 'Todo')
+STATUS_IN_PROGRESS=$(yq '.github.board_statuses.in_progress // "In Progress"' .chama.yml 2>/dev/null || echo 'In Progress')
 ```
 
 ## References
@@ -98,7 +98,7 @@ Read the Spec before implementing.
 
 ## 2) Setup
 
-Create branch and move item to `In Progress`.
+Create branch and move item to `$STATUS_IN_PROGRESS`.
 
 ```bash
 BRANCH_NAME="feat/issue-$ISSUE_NUMBER"
@@ -107,7 +107,7 @@ git checkout -b "$BRANCH_NAME"
 PROJECT_ID=$(gh project list --owner "$OWNER" --format json | jq -r ".projects[] | select(.number == $PROJECT_NUM) | .id")
 ITEM_ID=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r ".items[] | select(.content.number == $ISSUE_NUMBER) | .id")
 FIELD_ID=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .id')
-OPTION_ID_IN_PROGRESS=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "'"$STATUS_IN_PROGRESS"'") | .id')
+OPTION_ID_IN_PROGRESS=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r --arg status "$STATUS_IN_PROGRESS" '.fields[] | select(.name == "Status") | .options[] | select(.name == $status) | .id')
 
 gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID_IN_PROGRESS"
 ```

@@ -37,8 +37,8 @@ REVIEWS_DIR="${CHAMA_REVIEWS_DIR:-$(yq '.artifacts.reviews_dir' "$ROOT_DIR/.cham
 DEFAULT_BRANCH="${CHAMA_DEFAULT_BRANCH:-$(yq '.github.default_branch' "$ROOT_DIR/.chama.yml" 2>/dev/null || echo 'main')}"
 
 # Board statuses (configurable via .chama.yml, with defaults)
-STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' "$ROOT_DIR/.chama.yml" 2>/dev/null)
-STATUS_IN_REVIEW=$(yq '.github.board_statuses.in_review // "In Review"' "$ROOT_DIR/.chama.yml" 2>/dev/null)
+STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' "$ROOT_DIR/.chama.yml" 2>/dev/null || echo 'Todo')
+STATUS_IN_REVIEW=$(yq '.github.board_statuses.in_review // "In Review"' "$ROOT_DIR/.chama.yml" 2>/dev/null || echo 'In Review')
 
 LOG_DIR="$ROOT_DIR/$PROGRESS_DIR"
 RUN_ID="$(date +%Y%m%d-%H%M%S)"
@@ -157,14 +157,14 @@ EOF
     gh copilot-review "$pr_number" 2>/dev/null || true
 
     # Move to In Review
-    echo "Moving issue to In Review..."
+    echo "Moving issue to $STATUS_IN_REVIEW..."
     local project_id item_id field_id option_id
     project_id=$(gh project list --owner "$OWNER" --format json | jq -r ".projects[] | select(.number == $PROJECT_NUM) | .id")
     item_id=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r ".items[] | select(.content.number == $issue_number) | .id")
     field_id=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .id')
-    option_id=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "'"$STATUS_IN_REVIEW"'") | .id')
+    option_id=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r --arg status "$STATUS_IN_REVIEW" '.fields[] | select(.name == "Status") | .options[] | select(.name == $status) | .id')
     gh project item-edit --project-id "$project_id" --id "$item_id" --field-id "$field_id" --single-select-option-id "$option_id"
-    echo "Issue #$issue_number moved to In Review."
+    echo "Issue #$issue_number moved to $STATUS_IN_REVIEW."
 
     # Wait for CI
     echo "Waiting for CI checks..."
@@ -240,10 +240,10 @@ TODO_COUNT=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json 
       | select(.status == $status)
     ] | length' 2>/dev/null || echo "?")
 
-log "Pending Todo items: $TODO_COUNT (will process up to $MAX_TASKS)"
+log "Pending $STATUS_TODO items: $TODO_COUNT (will process up to $MAX_TASKS)"
 
 if [[ "$TODO_COUNT" == "0" ]]; then
-  log "No Todo items found. Nothing to do."
+  log "No $STATUS_TODO items found. Nothing to do."
   exit 0
 fi
 
@@ -258,9 +258,9 @@ for TASK_NUM in $(seq 1 "$MAX_TASKS"); do
   TASK_START="$(date +%s)"
   log "--- Task $TASK_NUM/$MAX_TASKS ---"
 
-  # 1. Check for Todo items
+  # 1. Check for items with status $STATUS_TODO
   if ! has_todo_items; then
-    log "No Todo issues found. Finishing successfully."
+    log "No $STATUS_TODO issues found. Finishing successfully."
     break
   fi
 

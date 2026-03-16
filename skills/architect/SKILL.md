@@ -26,7 +26,7 @@ OWNER="${CHAMA_OWNER:-$(yq '.github.owner' .chama.yml 2>/dev/null)}"
 PROJECT_NUM="${CHAMA_PROJECT_NUMBER:-$(yq '.github.project_number' .chama.yml 2>/dev/null)}"
 
 # Board statuses (configurable via .chama.yml, with defaults)
-STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' .chama.yml 2>/dev/null)
+STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' .chama.yml 2>/dev/null || echo 'Todo')
 ```
 
 ## Knowledge base (mandatory)
@@ -181,7 +181,7 @@ PHASE_URL=$(gh issue create \
 ```bash
 PROJECT_ID=$(gh project list --owner "$OWNER" --format json | jq -r ".projects[] | select(.number == $PROJECT_NUM) | .id")
 FIELD_ID=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .id')
-OPTION_ID_TODO=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "'"$STATUS_TODO"'") | .id')
+OPTION_ID_TODO=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r --arg status "$STATUS_TODO" '.fields[] | select(.name == "Status") | .options[] | select(.name == $status) | .id')
 
 # Add phases to project
 gh project item-add "$PROJECT_NUM" --owner "$OWNER" --url "$PHASE_URL"
