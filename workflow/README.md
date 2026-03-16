@@ -72,6 +72,37 @@ All artifacts are stored under directories configured in `.chama.yml`:
 - Progress logs: `artifacts.progress_dir` (default: `.chama/progress`)
 - Reviews: `artifacts.reviews_dir` (default: `.chama/reviews`)
 
+## Knowledge paths
+
+Projects can configure `knowledge_paths` in `.chama.yml` to feed domain documentation into the architect:
+
+```yaml
+knowledge_paths:
+  - "docs/architecture/"
+  - "docs/domain/"
+  - "specs/"
+```
+
+The architect reads files with extensions `.md`, `.yml`, `.yaml`, `.txt` from each path, applying progressive limits:
+
+| Condition | Behavior |
+|-----------|----------|
+| ≤10 files **and** ≤100KB | Read normally |
+| 11-15 files **or** 100-200KB | Read with **WARNING** suggesting more specific paths |
+| >15 files **or** >200KB | **Skip path entirely** with **CRITICAL** alert |
+
+- Paths that don't exist are ignored silently.
+- Paths are relative to the project root; `../` is not supported.
+
+## Spec template resolution
+
+The architect and generate-specs workflows resolve the Spec template with a fallback chain:
+
+1. **Project override**: `.chama/templates/spec.md` (if it exists)
+2. **Default template**: `templates/spec.md.default` (in the Chama plugin)
+
+To customize the Spec template for your project, copy `templates/spec.md.default` to `.chama/templates/spec.md` and edit it. The resolution logic lives in `scripts/resolve-spec-template.sh`.
+
 ## Scope rules
 
 - Implementation must follow the Spec.

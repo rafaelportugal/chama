@@ -112,7 +112,7 @@ If `CLAUDE.md` already exists, suggest adding the Chama workflow section.
 ## Step 6 — Create artifact directories
 
 ```bash
-mkdir -p .chama/progress .chama/reviews
+mkdir -p .chama/progress .chama/reviews .chama/templates
 echo ".chama/" >> .gitignore  # if not already there
 ```
 
@@ -123,3 +123,4 @@ At the end, show:
 2. Labels created
 3. GitHub Project configured
 4. Next step: "Run `/chama:ideas` to start brainstorming your first feature"
+5. Tip: "You can add `knowledge_paths` to `.chama.yml` to feed domain docs, ADRs, and contracts into the architect. See the commented example in your `.chama.yml`."
