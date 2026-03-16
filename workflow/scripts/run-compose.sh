@@ -221,7 +221,7 @@ log "Checking board status configuration..."
 
 SYNC_SCRIPT="$CHAMA_DIR/scripts/sync-board-statuses.sh"
 if [[ -f "$SYNC_SCRIPT" ]]; then
-  SYNC_RESULT=$(bash "$SYNC_SCRIPT" "$OWNER" "$PROJECT_NUM" 2>&1) || {
+  SYNC_RESULT=$(bash "$SYNC_SCRIPT" "$OWNER" "$PROJECT_NUM" "$ROOT_DIR/.chama.yml" 2>&1) || {
     log "ERROR: Board is not properly configured."
     echo "$SYNC_RESULT" | while IFS= read -r line; do log "  $line"; done
     log "Fix the board before running compose. See the link above."

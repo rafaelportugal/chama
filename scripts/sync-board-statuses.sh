@@ -6,36 +6,37 @@ set -euo pipefail
 # Reads expected statuses from .chama.yml (with defaults), compares with the
 # board's current configuration, and reports missing ones.
 #
-# Usage: bash scripts/sync-board-statuses.sh [owner] [project_number]
+# Usage: bash scripts/sync-board-statuses.sh [owner] [project_number] [chama_yml_path]
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ─── Resolve config ──────────────────────────────────────────────────────────
 
 OWNER="${1:-}"
 PROJECT_NUM="${2:-}"
+CHAMA_YML="${3:-.chama.yml}"
 
 if [[ -z "$OWNER" ]] || [[ -z "$PROJECT_NUM" ]]; then
-  if command -v yq >/dev/null 2>&1 && [[ -f ".chama.yml" ]]; then
-    [[ -z "$OWNER" ]] && OWNER=$(yq '.github.owner' .chama.yml 2>/dev/null)
-    [[ -z "$PROJECT_NUM" ]] && PROJECT_NUM=$(yq '.github.project_number' .chama.yml 2>/dev/null)
+  if command -v yq >/dev/null 2>&1 && [[ -f "$CHAMA_YML" ]]; then
+    [[ -z "$OWNER" ]] && OWNER=$(yq '.github.owner' "$CHAMA_YML" 2>/dev/null)
+    [[ -z "$PROJECT_NUM" ]] && PROJECT_NUM=$(yq '.github.project_number' "$CHAMA_YML" 2>/dev/null)
   fi
   [[ -z "$OWNER" || "$OWNER" == "null" ]] && OWNER="${CHAMA_OWNER:-}"
   [[ -z "$PROJECT_NUM" || "$PROJECT_NUM" == "null" ]] && PROJECT_NUM="${CHAMA_PROJECT_NUMBER:-}"
 fi
 
 if [[ -z "$OWNER" ]] || [[ -z "$PROJECT_NUM" ]]; then
-  echo "Usage: $0 <owner> <project_number>" >&2
+  echo "Usage: $0 <owner> <project_number> [chama_yml_path]" >&2
   echo "Or configure .chama.yml or set CHAMA_OWNER + CHAMA_PROJECT_NUMBER" >&2
   exit 1
 fi
 
 # ─── Read expected statuses from .chama.yml (with defaults) ──────────────────
 
-if command -v yq >/dev/null 2>&1 && [[ -f ".chama.yml" ]]; then
-  STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' .chama.yml 2>/dev/null)
-  STATUS_IN_PROGRESS=$(yq '.github.board_statuses.in_progress // "In Progress"' .chama.yml 2>/dev/null)
-  STATUS_IN_REVIEW=$(yq '.github.board_statuses.in_review // "In Review"' .chama.yml 2>/dev/null)
-  STATUS_DONE=$(yq '.github.board_statuses.done // "Done"' .chama.yml 2>/dev/null)
+if command -v yq >/dev/null 2>&1 && [[ -f "$CHAMA_YML" ]]; then
+  STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' "$CHAMA_YML" 2>/dev/null)
+  STATUS_IN_PROGRESS=$(yq '.github.board_statuses.in_progress // "In Progress"' "$CHAMA_YML" 2>/dev/null)
+  STATUS_IN_REVIEW=$(yq '.github.board_statuses.in_review // "In Review"' "$CHAMA_YML" 2>/dev/null)
+  STATUS_DONE=$(yq '.github.board_statuses.done // "Done"' "$CHAMA_YML" 2>/dev/null)
 else
   STATUS_TODO="Todo"
   STATUS_IN_PROGRESS="In Progress"
@@ -66,7 +67,7 @@ MISSING=()
 OK=()
 
 for expected in "${EXPECTED_STATUSES[@]}"; do
-  if echo "$CURRENT_STATUSES" | grep -qx "$expected"; then
+  if echo "$CURRENT_STATUSES" | grep -qxF "$expected"; then
     OK+=("$expected")
   else
     MISSING+=("$expected")
@@ -101,7 +102,9 @@ echo ""
 echo "GitHub Projects v2 does not support adding status options via CLI."
 echo "Please add the missing statuses manually:"
 echo ""
-echo "  1. Open: https://github.com/users/$OWNER/projects/$PROJECT_NUM/settings"
+echo "  1. Open your project settings:"
+echo "     https://github.com/users/$OWNER/projects/$PROJECT_NUM/settings"
+echo "     (for orgs: https://github.com/orgs/$OWNER/projects/$PROJECT_NUM/settings)"
 echo "  2. Click on the 'Status' field"
 echo "  3. Add the missing options listed above"
 echo ""
@@ -120,8 +123,8 @@ echo ""
 echo "Casing check (Chama workflows are case-sensitive):"
 CASING_OK=true
 for expected in "${EXPECTED_STATUSES[@]}"; do
-  if echo "$CURRENT_STATUSES" | grep -qix "$expected" && ! echo "$CURRENT_STATUSES" | grep -qx "$expected"; then
-    ACTUAL=$(echo "$CURRENT_STATUSES" | grep -ix "$expected")
+  if echo "$CURRENT_STATUSES" | grep -qixF "$expected" && ! echo "$CURRENT_STATUSES" | grep -qxF "$expected"; then
+    ACTUAL=$(echo "$CURRENT_STATUSES" | grep -ixF "$expected")
     echo "  WARNING: Found '$ACTUAL' but .chama.yml expects '$expected'"
     CASING_OK=false
   fi
