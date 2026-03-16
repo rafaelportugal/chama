@@ -102,7 +102,8 @@ Before the Spec, consolidate the architectural vision:
 ## 3) Resolve Spec template
 
 ```bash
-SPEC_TEMPLATE=$(scripts/resolve-spec-template.sh)
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+SPEC_TEMPLATE=$("$ROOT_DIR/scripts/resolve-spec-template.sh")
 ```
 
 Read the resolved `SPEC_TEMPLATE` content and use it as the structure for the Spec Issue. Fill in each section with the architectural analysis from steps 1 and 2.
