@@ -30,4 +30,9 @@ personas:
   - name: "{{PERSONA_NAME}}"
     description: "{{PERSONA_DESCRIPTION}}"
 
+# knowledge_paths:                        # optional — feed domain docs into the architect
+#   - "docs/architecture/"
+#   - "docs/domain/"
+#   - "specs/"
+
 business_segment: "{{BUSINESS_SEGMENT}}"

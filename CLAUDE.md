@@ -18,13 +18,15 @@ Chama is a generic SDLC pipeline orchestrator that works with any project via `.
 - Environment variables (`CHAMA_REPO`, `CHAMA_OWNER`, `CHAMA_PROJECT_NUMBER`) override `.chama.yml`
 - Board statuses are configurable via `github.board_statuses` in `.chama.yml` (defaults: Todo, In Progress, In Review, Done)
 - Multi-language support via `project.language` in `.chama.yml` (pt-BR or en)
+- `knowledge_paths` in `.chama.yml` feeds domain docs (`.md`, `.yml`, `.yaml`, `.txt`) into the architect with progressive limits
+- Spec template is customizable: `.chama/templates/spec.md` overrides the default `templates/spec.md.default`
 
 ## Command flow
 
 ```
-/chama:init       -> onboard project (.chama.yml, labels, project)
+/chama:init       -> onboard project (.chama.yml, labels, project, .chama/templates/)
 /chama:ideas      -> brainstorm -> GitHub Issue (label: idea)
-/chama:architect  -> idea Issue -> Spec Issue + phase Issues
+/chama:architect  -> idea Issue -> Spec Issue + phase Issues (reads knowledge_paths + spec template)
 /chama:code       -> phase Issue (Todo) -> implement -> PR
 /chama:review-loop -> PR comments -> fix/respond -> merge
 ```
