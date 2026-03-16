@@ -68,88 +68,44 @@ Before the Spec, consolidate the architectural vision:
 - Avoid large restructures/refactors; if needed, register as out of scope.
 - Define test strategy per scenario (happy path, edge, error, regression) at this stage.
 
-## 3) Create Spec Issue
+## 3) Resolve Spec template
 
-Create a GitHub Issue with label `spec`:
+Use the following resolution logic to load the Spec template:
+
+```bash
+if [ -f ".chama/templates/spec.md" ]; then
+  SPEC_TEMPLATE=$(cat ".chama/templates/spec.md")
+else
+  # Discover chama plugin path (local or installed)
+  if [ -d "chama/templates" ]; then
+    CHAMA_PLUGIN_DIR="chama"
+  elif [ -d "$HOME/.claude/plugins/chama/templates" ]; then
+    CHAMA_PLUGIN_DIR="$HOME/.claude/plugins/chama"
+  elif CACHE_DIR=$(find "$HOME/.claude" -maxdepth 3 -type d -name "chama" -path "*/plugins/*" 2>/dev/null | head -1) && [ -n "$CACHE_DIR" ]; then
+    CHAMA_PLUGIN_DIR="$CACHE_DIR"
+  else
+    echo "ERROR: Could not find chama plugin directory"
+    exit 1
+  fi
+  SPEC_TEMPLATE=$(cat "$CHAMA_PLUGIN_DIR/templates/spec.md.default")
+fi
+```
+
+Read the resolved `SPEC_TEMPLATE` content and use it as the structure for the Spec Issue. Fill in each section with the architectural analysis from steps 1 and 2.
+
+## 4) Create Spec Issue
+
+Create a GitHub Issue with label `spec`, using the resolved template filled with the analysis:
 
 ```bash
 SPEC_URL=$(gh issue create \
   --repo "$REPO" \
   --label "spec" \
   --title "spec: <Spec title>" \
-  --body "$(cat <<'SPECEOF'
-# Spec: <Title>
-
-**Date:** YYYY-MM-DD
-**Status:** Draft
-**Idea:** #IDEA_ISSUE
-
-## 1. Context
-<problem description>
-
-## 2. Objective
-<expected result>
-
-## 3. Scope
-### Includes
-- ...
-### Does not include
-- ...
-
-## 4. Personas / Impacted Users
-- ...
-
-## 5. Functional Requirements
-- RF1: ...
-
-## 6. Non-Functional Requirements
-- Performance, Security, Observability, Scalability
-
-## 7. Main Flows
-### <Flow name>
-1. ...
-
-## 8. Dependencies
-- ...
-
-## 9. Risks and Trade-offs
-- ...
-
-## 10. Success Metrics
-- ...
-
-## 11. Acceptance Criteria
-- [ ] ...
-
-## 12. Architecture
-<proposed architecture>
-
-## 13. Phase Plan
-### Phase 1: <name>
-- Objective:
-- Scope:
-- Acceptance criteria:
-- Estimate: S/M/L
-
-### Phase 2: <name>
-- ...
-
-## 14. Test Strategy
-- Happy path scenarios
-- Edge cases
-- Error scenarios
-- Regression plan
-
-## 15. Technical Details
-<schemas, models, endpoints>
-
-## 16. Open Questions
-- ...
-SPECEOF
-)")
+  --body "$SPEC_BODY")
 ```
 
-## 4) Create phase Issues
+## 5) Create phase Issues
 
 For each phase, create an issue with label `phase`:
 
@@ -176,7 +132,7 @@ PHASE_URL=$(gh issue create \
 - [ ] <test scenario>")
 ```
 
-## 5) Add to GitHub Project
+## 6) Add to GitHub Project
 
 ```bash
 PROJECT_ID=$(gh project list --owner "$OWNER" --format json | jq -r ".projects[] | select(.number == $PROJECT_NUM) | .id")
@@ -191,7 +147,7 @@ ITEM_ID=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json | j
 gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID_TODO"
 ```
 
-## 6) Close the idea Issue
+## 7) Close the idea Issue
 
 ```bash
 gh issue close "$IDEA_ISSUE" --repo "$REPO" --comment "Converted to Spec #SPEC_NUMBER. Phases created."
