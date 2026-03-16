@@ -33,6 +33,39 @@ STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' .chama.yml 2>/dev/null 
 - `.chama.yml` (project config)
 - `CLAUDE.md` (root and per-component — auto-loaded)
 
+## Knowledge paths (optional)
+
+Read `knowledge_paths` from `.chama.yml`. If the field is absent or empty, skip this section entirely (backward compatible).
+
+```bash
+KNOWLEDGE_PATHS=$(yq '.knowledge_paths[]' .chama.yml 2>/dev/null)
+```
+
+For each path in `KNOWLEDGE_PATHS`:
+
+1. **Check existence** — if the path does not exist, skip it silently and move to the next.
+2. **List eligible files** — find files with extensions `.md`, `.yml`, `.yaml`, `.txt`:
+```bash
+FILES=$(find "$KPATH" -type f \( -name "*.md" -o -name "*.yml" -o -name "*.yaml" -o -name "*.txt" \) 2>/dev/null)
+FILE_COUNT=$(echo "$FILES" | grep -c . 2>/dev/null || echo 0)
+TOTAL_KB=$(echo "$FILES" | xargs du -k 2>/dev/null | tail -1 | awk '{print $1}')
+# For individual files, sum their sizes:
+TOTAL_KB=$(echo "$FILES" | xargs du -k 2>/dev/null | awk '{s+=$1} END {print s+0}')
+```
+3. **Apply progressive strategy**:
+   - **≤10 files AND ≤100KB** → read all files, no alerts.
+   - **11–15 files OR 101–200KB** → read all files + emit **WARNING**: `"⚠️ WARNING: Knowledge path '<path>' has <N> files (<X>KB). Consider using more specific paths to reduce context size."`
+   - **>15 files OR >200KB** → **skip the entire path** + emit **CRITICAL**: `"🚫 CRITICAL: Knowledge path '<path>' ignored (<N> files, <X>KB). Exceeds limits (max 15 files or 200KB). Reorganize into more specific paths."`
+4. **Incorporate content** — for approved paths, read each file and incorporate its content as domain context. This context informs architectural decisions in steps 1 and 2.
+
+Present a summary of knowledge paths processing before proceeding:
+```
+Knowledge paths summary:
+  - docs/architecture/ → 5 files (32KB) ✅
+  - docs/domain/ → 12 files (150KB) ⚠️ WARNING
+  - docs/all/ → 25 files (500KB) 🚫 SKIPPED
+```
+
 ## Rules
 - Work on **only 1 idea at a time**.
 - Do not implement code in this workflow.
