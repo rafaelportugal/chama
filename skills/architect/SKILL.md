@@ -101,35 +101,41 @@ Before the Spec, consolidate the architectural vision:
 
 ## 3) Resolve Spec template
 
+**IMPORTANT:** Do NOT read existing Spec issues to learn the format. Use ONLY the resolved template below as the structure.
+
 ```bash
 ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 SPEC_TEMPLATE=$("$ROOT_DIR/scripts/resolve-spec-template.sh")
 ```
 
-Read the resolved `SPEC_TEMPLATE` content and use it as the structure for the Spec Issue. Fill in each section with the architectural analysis from steps 1 and 2.
+Read the resolved `SPEC_TEMPLATE` content. Use it as the **sole** structure for the Spec Issue. Fill in each section with the architectural analysis from steps 1 and 2.
 
 ## 4) Create Spec Issue
 
-Create a GitHub Issue with label `spec`, using the resolved template filled with the analysis:
+Write the filled Spec to a temp file and create the issue using `--body-file` to avoid shell escaping issues:
 
 ```bash
+# Write filled spec to temp file
+cat > /tmp/chama-spec-body.md <<'SPECEOF'
+<filled spec content here>
+SPECEOF
+
 SPEC_URL=$(gh issue create \
   --repo "$REPO" \
   --label "spec" \
   --title "spec: <Spec title>" \
-  --body "$SPEC_BODY")
+  --body-file /tmp/chama-spec-body.md)
+
+rm -f /tmp/chama-spec-body.md
 ```
 
 ## 5) Create phase Issues
 
-For each phase, create an issue with label `phase`:
+For each phase, write the body to a temp file and create the issue using `--body-file`:
 
 ```bash
-PHASE_URL=$(gh issue create \
-  --repo "$REPO" \
-  --label "phase" \
-  --title "phase: [Spec #SPEC_NUMBER] Phase N - <name>" \
-  --body "## Spec
+cat > /tmp/chama-phase-body.md <<'PHASEEOF'
+## Spec
 - #SPEC_NUMBER
 
 ## Objective
@@ -144,21 +150,35 @@ PHASE_URL=$(gh issue create \
 - [ ] <criterion 2>
 
 ## Tests
-- [ ] <test scenario>")
+- [ ] <test scenario>
+PHASEEOF
+
+PHASE_URL=$(gh issue create \
+  --repo "$REPO" \
+  --label "phase" \
+  --title "phase: [Spec #SPEC_NUMBER] Phase N - <name>" \
+  --body-file /tmp/chama-phase-body.md)
+
+rm -f /tmp/chama-phase-body.md
 ```
 
 ## 6) Add to GitHub Project
+
+For each phase issue created, add it to the project and set status to Todo:
 
 ```bash
 PROJECT_ID=$(gh project list --owner "$OWNER" --format json | jq -r ".projects[] | select(.number == $PROJECT_NUM) | .id")
 FIELD_ID=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .id')
 OPTION_ID_TODO=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r --arg status "$STATUS_TODO" '.fields[] | select(.name == "Status") | .options[] | select(.name == $status) | .id')
 
-# Add phases to project
+# Add phase to project
 gh project item-add "$PROJECT_NUM" --owner "$OWNER" --url "$PHASE_URL"
 
-# Set status to Todo
-ITEM_ID=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r --arg url "$PHASE_URL" '.items[] | select(.content.url == $url) | .id')
+# Extract phase issue number from URL (last segment)
+PHASE_NUMBER=$(echo "$PHASE_URL" | grep -oP '\d+$')
+
+# Set status to Todo (lookup by issue number, not URL)
+ITEM_ID=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r --argjson num "$PHASE_NUMBER" '.items[] | select(.content.number == $num) | .id')
 gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID_TODO"
 ```
 
