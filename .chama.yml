@@ -36,4 +36,13 @@ personas:
   - name: "Developer"
     description: "Uses Chama to orchestrate SDLC in their projects"
 
+versioning:
+  enabled: true
+  strategy: "spec-lifecycle"
+  files:
+    - path: ".claude-plugin/plugin.json"
+      jq_filter: ".version"
+    - path: ".claude-plugin/marketplace.json"
+      jq_filter: ".plugins[0].version"
+
 business_segment: "DevTools"
