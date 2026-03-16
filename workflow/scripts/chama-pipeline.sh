@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ─── Compose Orchestrator ───────────────────────────────────────────────────
-# Orchestrates the cycle: coder → simplify → PR → pr-reviewer → review-loop
-# Usage: MAX_TASKS=3 MAX_REVIEW_ROUNDS=4 STOP_ON_REVIEW_FAILURE=true bash run-compose.sh
+# ─── Chama Pipeline ─────────────────────────────────────────────────────────
+# Orchestrates the full SDLC cycle: coder → simplify → PR → pr-reviewer → review-loop
+# Usage: MAX_TASKS=3 MAX_REVIEW_ROUNDS=4 STOP_ON_REVIEW_FAILURE=true bash chama-pipeline.sh
 # ─────────────────────────────────────────────────────────────────────────────
 
 ROOT_DIR="$(git rev-parse --show-toplevel)"

@@ -1,0 +1,39 @@
+project:
+  name: "Chama"
+  description: "SDLC pipeline orchestrator for Claude Code"
+  repo: "rafaelportugal/chama"
+  language: "pt-BR"
+
+github:
+  owner: "rafaelportugal"
+  project_number: 2
+  default_branch: "main"
+  board_statuses:
+    todo: "Todo"
+    in_progress: "In Progress"
+    in_review: "In Review"
+    done: "Done"
+
+tech_stack:
+  summary: "Shell scripts + Markdown prompts"
+  components:
+    - name: "skills"
+      path: "skills/"
+      quality_gates: []
+    - name: "workflow"
+      path: "workflow/"
+      quality_gates: []
+    - name: "scripts"
+      path: "scripts/"
+      quality_gates:
+        - "bash -n scripts/*.sh"
+
+artifacts:
+  progress_dir: ".chama/progress"
+  reviews_dir: ".chama/reviews"
+
+personas:
+  - name: "Developer"
+    description: "Uses Chama to orchestrate SDLC in their projects"
+
+business_segment: "DevTools"
