@@ -36,6 +36,10 @@ PROGRESS_DIR="${CHAMA_PROGRESS_DIR:-$(yq '.artifacts.progress_dir' "$ROOT_DIR/.c
 REVIEWS_DIR="${CHAMA_REVIEWS_DIR:-$(yq '.artifacts.reviews_dir' "$ROOT_DIR/.chama.yml" 2>/dev/null || echo '.chama/reviews')}"
 DEFAULT_BRANCH="${CHAMA_DEFAULT_BRANCH:-$(yq '.github.default_branch' "$ROOT_DIR/.chama.yml" 2>/dev/null || echo 'main')}"
 
+# Board statuses (configurable via .chama.yml, with defaults)
+STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' "$ROOT_DIR/.chama.yml" 2>/dev/null)
+STATUS_IN_REVIEW=$(yq '.github.board_statuses.in_review // "In Review"' "$ROOT_DIR/.chama.yml" 2>/dev/null)
+
 LOG_DIR="$ROOT_DIR/$PROGRESS_DIR"
 RUN_ID="$(date +%Y%m%d-%H%M%S)"
 COMPOSE_LOG="$LOG_DIR/compose-${RUN_ID}.txt"
@@ -73,11 +77,10 @@ run_claude() {
 has_todo_items() {
   local count
   count=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json \
-    | jq '[.items[]
+    | jq --arg status "$STATUS_TODO" '[.items[]
         | select(.content)
         | select(.content.type == "Issue")
-        | select(.status == "Todo")
-        | select((.content.title | ascii_downcase | startswith("epic:")) | not)
+        | select(.status == $status)
       ] | length')
   [[ "$count" -gt 0 ]]
 }
@@ -159,7 +162,7 @@ EOF
     project_id=$(gh project list --owner "$OWNER" --format json | jq -r ".projects[] | select(.number == $PROJECT_NUM) | .id")
     item_id=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r ".items[] | select(.content.number == $issue_number) | .id")
     field_id=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .id')
-    option_id=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "In Review") | .id')
+    option_id=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "'"$STATUS_IN_REVIEW"'") | .id')
     gh project item-edit --project-id "$project_id" --id "$item_id" --field-id "$field_id" --single-select-option-id "$option_id"
     echo "Issue #$issue_number moved to In Review."
 
@@ -212,6 +215,37 @@ fi
 
 # Validate gh auth
 gh auth status >/dev/null 2>&1 || { log "ERROR: gh not authenticated. Use 'gh auth login' or configure GITHUB_APP_ID."; exit 1; }
+
+# ─── Board readiness check ──────────────────────────────────────────────────
+log "Checking board status configuration..."
+
+SYNC_SCRIPT="$CHAMA_DIR/scripts/sync-board-statuses.sh"
+if [[ -f "$SYNC_SCRIPT" ]]; then
+  SYNC_RESULT=$(bash "$SYNC_SCRIPT" "$OWNER" "$PROJECT_NUM" 2>&1) || {
+    log "ERROR: Board is not properly configured."
+    echo "$SYNC_RESULT" | while IFS= read -r line; do log "  $line"; done
+    log "Fix the board before running compose. See the link above."
+    exit 1
+  }
+  log "Board statuses: OK"
+else
+  log "WARNING: sync-board-statuses.sh not found at $SYNC_SCRIPT. Skipping board check."
+fi
+
+# ─── Pending items summary ──────────────────────────────────────────────────
+TODO_COUNT=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json \
+  | jq --arg status "$STATUS_TODO" '[.items[]
+      | select(.content)
+      | select(.content.type == "Issue")
+      | select(.status == $status)
+    ] | length' 2>/dev/null || echo "?")
+
+log "Pending Todo items: $TODO_COUNT (will process up to $MAX_TASKS)"
+
+if [[ "$TODO_COUNT" == "0" ]]; then
+  log "No Todo items found. Nothing to do."
+  exit 0
+fi
 
 log "=== Compose started: MAX_TASKS=$MAX_TASKS MAX_REVIEW_ROUNDS=$MAX_REVIEW_ROUNDS STOP_ON_REVIEW_FAILURE=$STOP_ON_REVIEW_FAILURE ==="
 log "  Log dir: $LOG_DIR"

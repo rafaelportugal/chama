@@ -54,7 +54,6 @@ REPO="<owner/repo>"
 
 gh label create "idea"  --repo "$REPO" --color "0E8A16" --description "Idea in brainstorm" 2>/dev/null || true
 gh label create "spec"  --repo "$REPO" --color "1D76DB" --description "Spec document" 2>/dev/null || true
-gh label create "epic"  --repo "$REPO" --color "D93F0B" --description "Epic grouping phases" 2>/dev/null || true
 gh label create "phase" --repo "$REPO" --color "FBCA04" --description "Implementation phase" 2>/dev/null || true
 ```
 
@@ -73,6 +72,11 @@ github:
   owner: "<owner>"
   project_number: <number>
   default_branch: "<main>"              # "main", "dev", etc.
+  board_statuses:                       # optional — customize to match your board
+    todo: "Todo"
+    in_progress: "In Progress"
+    in_review: "In Review"
+    done: "Done"
 
 tech_stack:
   summary: "<summary>"

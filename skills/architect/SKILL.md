@@ -1,5 +1,5 @@
 ---
-description: Idea to Spec + phases + epic (all as GitHub Issues)
+description: Idea to Spec + phases (all as GitHub Issues)
 ---
 
 # Idea to Spec + Tasks
@@ -14,7 +14,6 @@ Your job is to execute **one idea per iteration** and complete this flow:
 2. Define architecture
 3. Generate Spec (as GitHub Issue)
 4. Break into phases (as GitHub Issues)
-5. Create epic (as GitHub Issue)
 
 ## Idioma
 Read `project.language` from `.chama.yml`. Respond in the configured language. Default: pt-BR.
@@ -25,6 +24,9 @@ Read `project.language` from `.chama.yml`. Respond in the configured language. D
 REPO="${CHAMA_REPO:-$(yq '.project.repo' .chama.yml 2>/dev/null)}"
 OWNER="${CHAMA_OWNER:-$(yq '.github.owner' .chama.yml 2>/dev/null)}"
 PROJECT_NUM="${CHAMA_PROJECT_NUMBER:-$(yq '.github.project_number' .chama.yml 2>/dev/null)}"
+
+# Board statuses (configurable via .chama.yml, with defaults)
+STATUS_TODO=$(yq '.github.board_statuses.todo // "Todo"' .chama.yml 2>/dev/null)
 ```
 
 ## Knowledge base (mandatory)
@@ -156,9 +158,7 @@ PHASE_URL=$(gh issue create \
   --repo "$REPO" \
   --label "phase" \
   --title "phase: [Spec #SPEC_NUMBER] Phase N - <name>" \
-  --body "Parent: $EPIC_URL
-
-## Spec
+  --body "## Spec
 - #SPEC_NUMBER
 
 ## Objective
@@ -176,33 +176,14 @@ PHASE_URL=$(gh issue create \
 - [ ] <test scenario>")
 ```
 
-## 5) Create epic Issue
-
-Create a tracking issue with label `epic`:
-
-```bash
-EPIC_URL=$(gh issue create \
-  --repo "$REPO" \
-  --label "epic" \
-  --title "epic: <Spec title>" \
-  --body "## Spec
-- #SPEC_NUMBER
-
-## Phases
-- [ ] Phase 1: <name> — #PHASE_1_NUMBER
-- [ ] Phase 2: <name> — #PHASE_2_NUMBER
-- [ ] Phase 3: <name> — #PHASE_3_NUMBER")
-```
-
-## 6) Add to GitHub Project
+## 5) Add to GitHub Project
 
 ```bash
 PROJECT_ID=$(gh project list --owner "$OWNER" --format json | jq -r ".projects[] | select(.number == $PROJECT_NUM) | .id")
 FIELD_ID=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .id')
-OPTION_ID_TODO=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "Todo") | .id')
+OPTION_ID_TODO=$(gh project field-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "'"$STATUS_TODO"'") | .id')
 
-# Add epic + phases to project
-gh project item-add "$PROJECT_NUM" --owner "$OWNER" --url "$EPIC_URL"
+# Add phases to project
 gh project item-add "$PROJECT_NUM" --owner "$OWNER" --url "$PHASE_URL"
 
 # Set status to Todo
@@ -210,17 +191,16 @@ ITEM_ID=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json | j
 gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID_TODO"
 ```
 
-## 7) Close the idea Issue
+## 6) Close the idea Issue
 
 ```bash
-gh issue close "$IDEA_ISSUE" --repo "$REPO" --comment "Converted to Spec #SPEC_NUMBER + Epic #EPIC_NUMBER. Phases created."
+gh issue close "$IDEA_ISSUE" --repo "$REPO" --comment "Converted to Spec #SPEC_NUMBER. Phases created."
 ```
 
 ## Completion criteria
 Finish only when:
 - Spec Issue created with label `spec`
 - Phase Issues created with label `phase`
-- Epic Issue created with label `epic`
 - All items added to Project with status `Todo`
 - Idea Issue closed with links
 
@@ -229,7 +209,6 @@ Respond with:
 1. Spec created (issue number + URL)
 2. Architecture summary
 3. Phases defined (list with issue numbers)
-4. Epic created (number + URL)
-5. Confirmation of Project inclusion (`Todo`)
-6. Idea closed
-7. Open questions / risks
+4. Confirmation of Project inclusion (`Todo`)
+5. Idea closed
+6. Open questions / risks
