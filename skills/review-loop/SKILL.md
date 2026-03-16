@@ -145,6 +145,33 @@ if [ -n "$ISSUE_NUMBER" ]; then
     | jq -r --arg status "$STATUS_DONE" '.fields[] | select(.name == "Status") | .options[] | select(.name == $status) | .id')
   gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" \
     --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID_DONE"
+
+  # Auto-close Spec if all phases are completed (best-effort)
+  PHASE_TITLE=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title --jq '.title' 2>/dev/null)
+  SPEC_NUM=$(echo "$PHASE_TITLE" | grep -oP '\[Spec #\K\d+' | head -1)
+
+  if [ -z "$SPEC_NUM" ]; then
+    PHASE_BODY=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json body --jq '.body' 2>/dev/null)
+    SPEC_NUM=$(echo "$PHASE_BODY" | grep -A1 '## Spec' | grep -oP '#\K\d+' | head -1)
+  fi
+
+  if [ -n "$SPEC_NUM" ]; then
+    SPEC_STATE=$(gh issue view "$SPEC_NUM" --repo "$REPO" --json state --jq '.state' 2>/dev/null)
+    if [ "$SPEC_STATE" = "OPEN" ]; then
+      OPEN_PHASES=$(gh issue list --repo "$REPO" --label "phase" --state open --limit 100 --json title \
+        | jq "[.[] | select(.title | test(\"\\\\[Spec #${SPEC_NUM}\\\\]\"))] | length")
+
+      if [ "$OPEN_PHASES" -eq 0 ]; then
+        COMPLETED_LIST=$(gh issue list --repo "$REPO" --label "phase" --state closed --limit 100 --json number,title \
+          | jq -r "[.[] | select(.title | test(\"\\\\[Spec #${SPEC_NUM}\\\\]\"))] | sort_by(.number) | .[] | \"- #\\(.number) \\(.title)\"")
+
+        gh issue close "$SPEC_NUM" --repo "$REPO" \
+          --comment "All phases completed. Spec delivered.
+
+${COMPLETED_LIST}" 2>/dev/null || true
+      fi
+    fi
+  fi
 fi
 ```
 
