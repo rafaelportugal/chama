@@ -12,14 +12,23 @@ MAX_REVIEW_ROUNDS="${MAX_REVIEW_ROUNDS:-4}"
 STOP_ON_REVIEW_FAILURE="${STOP_ON_REVIEW_FAILURE:-true}"
 
 # ─── Discover chama plugin path ─────────────────────────────────────────────
-# Check for local chama/ directory first, then global plugin
-if [[ -d "$ROOT_DIR/chama/workflow" ]]; then
+# Check: 1) running from chama repo itself, 2) local chama/ subdir, 3) global plugin (cache or legacy)
+if [[ -d "$ROOT_DIR/workflow" && -f "$ROOT_DIR/.claude-plugin/plugin.json" ]]; then
+  CHAMA_DIR="$ROOT_DIR"
+elif [[ -d "$ROOT_DIR/chama/workflow" ]]; then
   CHAMA_DIR="$ROOT_DIR/chama"
 elif [[ -d "$HOME/.claude/plugins/chama/workflow" ]]; then
   CHAMA_DIR="$HOME/.claude/plugins/chama"
 else
-  echo "ERROR: chama plugin not found (local or global)." >&2
-  exit 1
+  # Search in Claude Code plugin cache (versioned path)
+  CHAMA_DIR=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 3 -name "chama-pipeline.sh" -printf '%h' 2>/dev/null | head -1)
+  if [[ -n "$CHAMA_DIR" ]]; then
+    CHAMA_DIR="${CHAMA_DIR%/workflow/scripts}"
+  else
+    echo "ERROR: chama plugin not found (local or global)." >&2
+    echo "Searched: $ROOT_DIR/workflow, $ROOT_DIR/chama/, ~/.claude/plugins/chama/, ~/.claude/plugins/cache/chama/" >&2
+    exit 1
+  fi
 fi
 
 PROMPT_DIR="$CHAMA_DIR/workflow"
