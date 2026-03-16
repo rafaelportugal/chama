@@ -1,6 +1,6 @@
 {
   "name": "chama",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "SDLC pipeline orchestrator — Idea -> Spec -> Code -> Review -> Merge",
   "author": {
     "name": "Rafael Portugal",
