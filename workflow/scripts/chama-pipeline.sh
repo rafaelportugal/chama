@@ -175,10 +175,14 @@ EOF
     gh project item-edit --project-id "$project_id" --id "$item_id" --field-id "$field_id" --single-select-option-id "$option_id"
     echo "Issue #$issue_number moved to $STATUS_IN_REVIEW."
 
-    # Wait for CI
-    echo "Waiting for CI checks..."
-    if ! gh pr checks "$pr_number" --watch; then
-      echo "WARNING: Some CI checks failed for PR #$pr_number."
+    # Wait for CI (skip if no checks configured)
+    if gh pr checks "$pr_number" >/dev/null 2>&1; then
+      echo "Waiting for CI checks..."
+      if ! gh pr checks "$pr_number" --watch; then
+        echo "WARNING: Some CI checks failed for PR #$pr_number."
+      fi
+    else
+      echo "No CI checks configured, skipping."
     fi
 
     echo "PR_NUMBER=$pr_number"

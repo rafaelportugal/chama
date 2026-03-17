@@ -177,9 +177,21 @@ gh project item-add "$PROJECT_NUM" --owner "$OWNER" --url "$PHASE_URL"
 # Extract phase issue number from URL (last segment)
 PHASE_NUMBER=$(echo "$PHASE_URL" | grep -oP '\d+$')
 
-# Set status to Todo (lookup by issue number, not URL)
+# Wait for GitHub to index the new item, then set status to Todo
+sleep 3
 ITEM_ID=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r --argjson num "$PHASE_NUMBER" '.items[] | select(.content.number == $num) | .id')
-gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID_TODO"
+
+# Retry once if ITEM_ID is empty (API indexing delay)
+if [ -z "$ITEM_ID" ] || [ "$ITEM_ID" = "null" ]; then
+  sleep 3
+  ITEM_ID=$(gh project item-list "$PROJECT_NUM" --owner "$OWNER" --format json | jq -r --argjson num "$PHASE_NUMBER" '.items[] | select(.content.number == $num) | .id')
+fi
+
+if [ -n "$ITEM_ID" ] && [ "$ITEM_ID" != "null" ]; then
+  gh project item-edit --project-id "$PROJECT_ID" --id "$ITEM_ID" --field-id "$FIELD_ID" --single-select-option-id "$OPTION_ID_TODO"
+else
+  echo "WARNING: Could not set status for phase #$PHASE_NUMBER — item not found in project. Status may need manual update."
+fi
 ```
 
 ## 7) Close the idea Issue
