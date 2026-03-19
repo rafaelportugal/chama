@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.4.0] - 2026-03-19
+
+### Added
+- **`/chama:new-project`**: Guided bootstrap for new projects — transforms a free-form idea into a complete local foundation (`.chama.yml`, `CLAUDE.md`, `docs/PROJECT_BRIEF.md`, directory structure) (#25)
+  - 5-stage flow: discovery → adaptive questions → synthesis → generation → summary
+  - 10-field minimum contract for synthesis
+  - Merge mode with per-artifact preservation for existing projects
+  - Optional post-generation steps: review, commit, remote repo, `/chama:init`
+- **`templates/PROJECT_BRIEF.md.template`**: Reference template for project brief generation (#25)
+- Pipeline documentation updated with new-project as optional first step (#26)
+
+### Changed
+- Plugin description updated: "Bootstrap -> Idea -> Spec -> Code -> Review -> Merge" (#26)
+- Command flow in `CLAUDE.md` now shows full pipeline with arrows and local-first note (#26)
+
+### Fixed
+- Template discovery aligned with `resolve-spec-template.sh` chain (#28)
+- Git remote URL parsed into `owner/repo` format for `project.repo` inference (#28)
+- Spec template copy guarded with existence check (#28)
+- Conditional `git add` to avoid pathspec errors on missing paths (#28)
+- Word-count fallback heuristic for adaptive questions (#28)
+
 ## [1.3.0] - 2026-03-16
 
 ### Added
