@@ -7,7 +7,7 @@ Chama is a generic SDLC pipeline orchestrator that works with any project via `.
 - `skills/` — Slash commands (interactive, invoked by user as `/chama:<skill>`)
 - `workflow/` — Headless prompts for compose/automation pipelines
 - `agent/` — Docker runtime for isolated AI agent execution
-- `templates/` — Templates used by `/chama:init` for project onboarding
+- `templates/` — Templates used by `/chama:init` and `/chama:new-project` for project onboarding and bootstrap
 - `scripts/` — Utility scripts (GitHub label setup, etc.)
 
 ## Key patterns
@@ -24,12 +24,20 @@ Chama is a generic SDLC pipeline orchestrator that works with any project via `.
 ## Command flow
 
 ```
-/chama:init       -> onboard project (.chama.yml, labels, project, .chama/templates/)
-/chama:ideas      -> brainstorm -> GitHub Issue (label: idea)
-/chama:architect  -> idea Issue -> Spec Issue + phase Issues (reads knowledge_paths + spec template)
-/chama:code       -> phase Issue (Todo) -> implement -> PR
+/chama:new-project -> guided bootstrap: idea -> synthesis -> local foundation (.chama.yml, CLAUDE.md, docs/, structure)
+       ↓ (optional)
+/chama:init        -> onboard project (GitHub labels, board, project number, .chama/templates/)
+       ↓
+/chama:ideas       -> brainstorm -> GitHub Issue (label: idea)
+       ↓
+/chama:architect   -> idea Issue -> Spec Issue + phase Issues (reads knowledge_paths + spec template)
+       ↓
+/chama:code        -> phase Issue (Todo) -> implement -> PR
+       ↓
 /chama:review-loop -> PR comments -> fix/respond -> merge
 ```
+
+**Note:** `/chama:new-project` is local-first — it generates project foundation on the local filesystem without requiring GitHub. It composes with `/chama:init` (which handles GitHub setup) but does not depend on it. Projects can start with either command depending on whether the project already exists.
 
 ## Versioning
 
