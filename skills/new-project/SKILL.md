@@ -90,7 +90,13 @@ Build a structured synthesis with exactly **10 mandatory fields**. Display it fo
 
 ### Additional fields to infer
 
-- `project.repo` — infer from git remote (`git remote get-url origin`). **If no remote is configured**, ask the user explicitly: "Qual será o repositório no GitHub? (ex: owner/repo-name)". This field is critical — other Chama commands (`/chama:ideas`, `/chama:init`) depend on it. Derive `github.owner` from the repo value.
+- `project.repo` — infer from git remote, parsing the URL into `owner/repo` format:
+  ```bash
+  REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+  # Parse HTTPS (https://github.com/owner/repo.git) or SSH (git@github.com:owner/repo.git)
+  PROJECT_REPO=$(echo "$REMOTE_URL" | sed -E 's#^.*(github\.com[:/])##; s#\.git$##')
+  ```
+  If the remote is missing, not a GitHub URL, or parsing fails (empty result), ask the user explicitly: "Qual será o repositório no GitHub? (ex: owner/repo-name)". This field is critical — other Chama commands (`/chama:ideas`, `/chama:init`) depend on it. Derive `github.owner` from the repo value (`echo "$PROJECT_REPO" | cut -d/ -f1`).
 - `project.language` — infer from user language or ask
 - `github.default_branch` — default `main`
 
@@ -104,17 +110,19 @@ The Chama plugin may be installed locally or globally. Discover the path:
 
 ```bash
 # Discover Chama plugin templates directory
-# Try cached plugin path first, then local, then global
+# Aligned with scripts/resolve-spec-template.sh discovery chain:
+# 1) self-hosting (chama repo), 2) local subdir, 3) legacy global, 4) cache
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CHAMA_TEMPLATES=""
-for candidate in \
-  "$HOME/.claude/plugins/cache/chama/chama/"*/templates \
-  "./templates" \
-  "$HOME/.claude/plugins/chama/templates"; do
-  if [ -d "$candidate" ]; then
-    CHAMA_TEMPLATES="$candidate"
-    break
-  fi
-done
+if [ -d "$ROOT_DIR/templates" ] && [ -f "$ROOT_DIR/templates/chama.yml.template" ]; then
+  CHAMA_TEMPLATES="$ROOT_DIR/templates"
+elif [ -d "chama/templates" ]; then
+  CHAMA_TEMPLATES="chama/templates"
+elif [ -d "$HOME/.claude/plugins/chama/templates" ]; then
+  CHAMA_TEMPLATES="$HOME/.claude/plugins/chama/templates"
+elif CACHE_HIT=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 4 -name "chama.yml.template" -printf '%h' 2>/dev/null | head -1) && [ -n "$CACHE_HIT" ]; then
+  CHAMA_TEMPLATES="$CACHE_HIT"
+fi
 
 if [ -z "$CHAMA_TEMPLATES" ]; then
   echo "WARN: Chama templates not found — generating from built-in knowledge"
@@ -262,8 +270,8 @@ Ask the user sequentially (one at a time):
    for f in .chama.yml CLAUDE.md docs/PROJECT_BRIEF.md .chama/ .gitignore; do
      [ -e "$f" ] && git add "$f"
    done
-   # Also add any created component directories
-   git add --ignore-errors */  2>/dev/null || true
+   # Add component directories from the synthesis (replace with actual paths)
+   # Example: for f in backend/ frontend/ docs/; do [ -d "$f" ] && git add "$f"; done
    git commit -m "chore: bootstrap project with /chama:new-project"
    ```
 
