@@ -44,11 +44,15 @@ Read it fully before proceeding to Stage 2.
 
 Analyze the prompt against the **10 mandatory fields** of the minimum contract (see Stage 3). For each field, determine if the prompt provides enough information to fill it.
 
-**Question count rules:**
+**Question count rules (field coverage is primary, word count is fallback):**
 - Prompt covers all 10 fields clearly → **0 questions** (skip to Stage 3)
 - Prompt covers most fields (7-9) → **1-2 questions** for missing fields
 - Prompt covers some fields (4-6) → **3-4 questions** for missing fields
 - Prompt covers few fields (0-3) → **5 questions** for the most critical gaps
+
+**Word count fallback** (overrides the above when prompt is extremely short or rich):
+- Prompt has **<20 words** → always ask **at least 4-5 questions**, regardless of apparent field coverage (very short prompts are likely ambiguous)
+- Prompt has **>200 words** and covers most fields → ask **at most 1-2 questions** (rich prompts deserve minimal interruption)
 
 **Question guidelines:**
 - Ask all questions in a single batch (not one at a time)
@@ -84,9 +88,15 @@ Build a structured synthesis with exactly **10 mandatory fields**. Display it fo
 - If user says **"cancelar"**: stop immediately. Do not generate any artifacts. Show: "Bootstrap cancelado. Nenhum artefato foi criado."
 - Only proceed to Stage 4 after explicit **"sim"** (or equivalent confirmation).
 
-### Additional fields to infer (not asked, but used if available)
+### Additional fields to infer
 
-- `project.repo` — infer from git remote or project name as `owner/project-name`
+- `project.repo` — infer from git remote, parsing the URL into `owner/repo` format:
+  ```bash
+  REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+  # Parse HTTPS (https://github.com/owner/repo.git) or SSH (git@github.com:owner/repo.git)
+  PROJECT_REPO=$(echo "$REMOTE_URL" | sed -E 's#^.*(github\.com[:/])##; s#\.git$##')
+  ```
+  If the remote is missing, not a GitHub URL, or parsing fails (empty result), ask the user explicitly: "Qual será o repositório no GitHub? (ex: owner/repo-name)". This field is critical — other Chama commands (`/chama:ideas`, `/chama:init`) depend on it. Derive `github.owner` from the repo value (`echo "$PROJECT_REPO" | cut -d/ -f1`).
 - `project.language` — infer from user language or ask
 - `github.default_branch` — default `main`
 
@@ -99,12 +109,22 @@ After approval, generate artifacts locally. Use the Chama templates as **structu
 The Chama plugin may be installed locally or globally. Discover the path:
 
 ```bash
-# Try local first, then global
-if [ -d "chama/templates" ]; then
+# Discover Chama plugin templates directory
+# Aligned with scripts/resolve-spec-template.sh discovery chain:
+# 1) self-hosting (chama repo), 2) local subdir, 3) legacy global, 4) cache
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+CHAMA_TEMPLATES=""
+if [ -d "$ROOT_DIR/templates" ] && [ -f "$ROOT_DIR/templates/chama.yml.template" ]; then
+  CHAMA_TEMPLATES="$ROOT_DIR/templates"
+elif [ -d "chama/templates" ]; then
   CHAMA_TEMPLATES="chama/templates"
 elif [ -d "$HOME/.claude/plugins/chama/templates" ]; then
   CHAMA_TEMPLATES="$HOME/.claude/plugins/chama/templates"
-else
+elif CACHE_HIT=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 4 -name "chama.yml.template" -printf '%h' 2>/dev/null | head -1) && [ -n "$CACHE_HIT" ]; then
+  CHAMA_TEMPLATES="$CACHE_HIT"
+fi
+
+if [ -z "$CHAMA_TEMPLATES" ]; then
   echo "WARN: Chama templates not found — generating from built-in knowledge"
 fi
 ```
@@ -181,7 +201,7 @@ Create a contextual `CLAUDE.md` using the template as structural reference. Rule
 mkdir -p docs
 ```
 
-Create `docs/PROJECT_BRIEF.md` using `templates/PROJECT_BRIEF.md.template` as structural reference. Must include all 10 fields from the synthesis. Use the current date.
+Create `docs/PROJECT_BRIEF.md` using `$CHAMA_TEMPLATES/PROJECT_BRIEF.md.template` as structural reference (if `$CHAMA_TEMPLATES` was found). If templates are not available, generate the brief from built-in knowledge following the 10-field contract. Must include all 10 fields from the synthesis. Use the current date.
 
 ### 4.4 Copy spec template
 
@@ -191,9 +211,13 @@ Only if `.chama/templates/spec.md` does **NOT** exist:
 mkdir -p .chama/templates
 ```
 
-Copy the default spec template:
+Copy the default spec template (only if templates were found):
 ```bash
-cp "$CHAMA_TEMPLATES/spec.md.default" .chama/templates/spec.md
+if [ -n "$CHAMA_TEMPLATES" ] && [ -f "$CHAMA_TEMPLATES/spec.md.default" ]; then
+  cp "$CHAMA_TEMPLATES/spec.md.default" .chama/templates/spec.md
+else
+  echo "INFO: Spec template not found — skipping copy. You can add .chama/templates/spec.md manually later."
+fi
 ```
 
 If the file already exists, **do not touch it** — the user's custom template has absolute priority.
@@ -242,7 +266,12 @@ Ask the user sequentially (one at a time):
    ```
    If git is already initialized: "Deseja criar um commit com os artefatos gerados?"
    ```bash
-   git add .chama.yml CLAUDE.md docs/PROJECT_BRIEF.md .chama/ .gitignore
+   # Only add paths that actually exist to avoid pathspec errors
+   for f in .chama.yml CLAUDE.md docs/PROJECT_BRIEF.md .chama/ .gitignore; do
+     [ -e "$f" ] && git add "$f"
+   done
+   # Add component directories from the synthesis (replace with actual paths)
+   # Example: for f in backend/ frontend/ docs/; do [ -d "$f" ] && git add "$f"; done
    git commit -m "chore: bootstrap project with /chama:new-project"
    ```
 
