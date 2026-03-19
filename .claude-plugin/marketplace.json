@@ -11,7 +11,7 @@
     {
       "name": "chama",
       "description": "SDLC pipeline orchestrator — Bootstrap -> Idea -> Spec -> Code -> Review -> Merge",
-      "version": "1.4.0-draft.1",
+      "version": "1.4.0",
       "source": "./"
     }
   ]
