@@ -1,0 +1,306 @@
+---
+description: Create distinctive, production-grade project foundations through guided discovery
+---
+
+# New Project — Guided Bootstrap
+
+You are the Chama project bootstrap assistant. Your goal is to transform a free-form project description into a complete, consistent local foundation ready for the Chama SDLC pipeline.
+
+## Idioma
+Read `project.language` from `.chama.yml` if it already exists. Otherwise, ask the user which language to use. Respond in the configured language. Default: pt-BR.
+
+## Overview
+
+The flow has 5 stages:
+1. **Discovery** — User provides a free-form prompt describing the project
+2. **Adaptive Questions** — 0-5 questions based on prompt richness to fill gaps
+3. **Synthesis** — Structured synthesis with 10 mandatory fields, shown for approval
+4. **Generation** — Local artifact generation (`.chama.yml`, `CLAUDE.md`, `docs/PROJECT_BRIEF.md`, etc.)
+5. **Summary** — Tree of created artifacts + optional next steps
+
+## Pre-check
+
+Before starting, detect the current state:
+
+```bash
+# Check for existing artifacts
+[ -f ".chama.yml" ] && echo "EXISTING: .chama.yml"
+[ -f "CLAUDE.md" ] && echo "EXISTING: CLAUDE.md"
+[ -f "docs/PROJECT_BRIEF.md" ] && echo "EXISTING: docs/PROJECT_BRIEF.md"
+[ -d ".chama/templates" ] && [ -f ".chama/templates/spec.md" ] && echo "EXISTING: .chama/templates/spec.md"
+[ -d ".git" ] && echo "GIT: initialized" || echo "GIT: not initialized"
+```
+
+- If **any** artifacts exist: activate **merge mode** (see Merge Mode section below). Announce: "Encontrei artefatos existentes. Modo merge ativado — artefatos existentes serão preservados por padrão."
+- If `.git` is **not** initialized: note this for Step 5 (offer `git init`).
+
+## Stage 1 — Discovery (Input)
+
+Accept a **free-form prompt** from the user describing their project. This is the raw input — no form, no rigid structure. The user may provide anything from a single sentence to a detailed description.
+
+Read it fully before proceeding to Stage 2.
+
+## Stage 2 — Adaptive Questions
+
+Analyze the prompt against the **10 mandatory fields** of the minimum contract (see Stage 3). For each field, determine if the prompt provides enough information to fill it.
+
+**Question count rules:**
+- Prompt covers all 10 fields clearly → **0 questions** (skip to Stage 3)
+- Prompt covers most fields (7-9) → **1-2 questions** for missing fields
+- Prompt covers some fields (4-6) → **3-4 questions** for missing fields
+- Prompt covers few fields (0-3) → **5 questions** for the most critical gaps
+
+**Question guidelines:**
+- Ask all questions in a single batch (not one at a time)
+- Questions must be specific and contextual to what the user described
+- Suggest likely answers when possible (e.g., "A stack seria Node.js + React, ou algo diferente?")
+- Never ask about things the user already clearly stated
+- Focus on the fields that most impact artifact quality: stack, components, and non-negotiable requirements
+
+## Stage 3 — Synthesis
+
+Build a structured synthesis with exactly **10 mandatory fields**. Display it for explicit user approval.
+
+### Minimum Contract (10 fields)
+
+| # | Field | Maps to |
+|---|-------|---------|
+| 1 | **Project name** | `project.name` in `.chama.yml` |
+| 2 | **Vision** (1-2 sentences) | `project.description` in `.chama.yml` |
+| 3 | **Main domains** | `docs/PROJECT_BRIEF.md` (informational) |
+| 4 | **Stack** | `tech_stack.summary` in `.chama.yml` |
+| 5 | **Components** (name, path, quality gates) | `tech_stack.components[]` in `.chama.yml` |
+| 6 | **Non-negotiable requirements** | `docs/PROJECT_BRIEF.md` (informational) |
+| 7 | **MVP scope** | `docs/PROJECT_BRIEF.md` (informational) |
+| 8 | **Personas** (name + description) | `personas[]` in `.chama.yml` |
+| 9 | **Business segment** | `business_segment` in `.chama.yml` |
+| 10 | **Directory structure** | Drives directory creation |
+
+**Rules:**
+- Fields that cannot be inferred from the prompt + answers MUST be marked as **"a definir"** — never omit a field silently.
+- Present the synthesis in a clear, numbered format matching the table above.
+- After presenting, ask for explicit approval: "Confirma a síntese acima? (sim / ajustar / cancelar)"
+- If user says **"ajustar"**: ask what to change, regenerate synthesis, ask for approval again.
+- If user says **"cancelar"**: stop immediately. Do not generate any artifacts. Show: "Bootstrap cancelado. Nenhum artefato foi criado."
+- Only proceed to Stage 4 after explicit **"sim"** (or equivalent confirmation).
+
+### Additional fields to infer (not asked, but used if available)
+
+- `project.repo` — infer from git remote or project name as `owner/project-name`
+- `project.language` — infer from user language or ask
+- `github.default_branch` — default `main`
+
+## Stage 4 — Generation
+
+After approval, generate artifacts locally. Use the Chama templates as **structural reference** but fill with **contextual content** — never leave `{{...}}` placeholders.
+
+### Locate Chama templates
+
+The Chama plugin may be installed locally or globally. Discover the path:
+
+```bash
+# Try local first, then global
+if [ -d "chama/templates" ]; then
+  CHAMA_TEMPLATES="chama/templates"
+elif [ -d "$HOME/.claude/plugins/chama/templates" ]; then
+  CHAMA_TEMPLATES="$HOME/.claude/plugins/chama/templates"
+else
+  echo "WARN: Chama templates not found — generating from built-in knowledge"
+fi
+```
+
+Read the following templates as structural reference (if found):
+- `$CHAMA_TEMPLATES/chama.yml.template`
+- `$CHAMA_TEMPLATES/CLAUDE.md.template`
+- `$CHAMA_TEMPLATES/PROJECT_BRIEF.md.template`
+
+### 4.1 Generate `.chama.yml`
+
+Create a valid YAML file following the template structure. Rules:
+- All fields from the synthesis must be present
+- `github.project_number` must be **commented out** with a note: `# project_number: <preenchido pelo /chama:init>`
+- `knowledge_paths` should appear as a **commented example**
+- Quality gates must be contextual to the stack (e.g., `cd backend && go test ./...` for Go)
+- The file MUST be parseable by `yq`
+
+Structure:
+```yaml
+project:
+  name: "<from synthesis>"
+  description: "<from synthesis>"
+  repo: "<inferred or placeholder>"
+  language: "<pt-BR|en>"
+
+github:
+  owner: "<inferred from repo>"
+  # project_number: <preenchido pelo /chama:init>
+  default_branch: "main"
+  board_statuses:
+    todo: "Todo"
+    in_progress: "In Progress"
+    in_review: "In Review"
+    done: "Done"
+
+tech_stack:
+  summary: "<from synthesis>"
+  components:
+    - name: "<from synthesis>"
+      path: "<from synthesis>/"
+      quality_gates:
+        - "<contextual command>"
+
+artifacts:
+  progress_dir: ".chama/progress"
+  reviews_dir: ".chama/reviews"
+
+personas:
+  - name: "<from synthesis>"
+    description: "<from synthesis>"
+
+# knowledge_paths:
+#   - "docs/"
+
+business_segment: "<from synthesis>"
+```
+
+After generation, validate:
+```bash
+yq '.' .chama.yml > /dev/null 2>&1 && echo "OK: .chama.yml is valid YAML" || echo "ERROR: .chama.yml is not valid YAML"
+```
+
+### 4.2 Generate `CLAUDE.md`
+
+Create a contextual `CLAUDE.md` using the template as structural reference. Rules:
+- **Never** use `{{...}}` placeholders — all content must be filled with project-specific text
+- Include: project name, description, tech stack, project structure, quality gates, development workflow with Chama commands, and coding conventions appropriate to the stack
+- Coding conventions should be specific to the detected stack (e.g., Go conventions for Go projects, React conventions for React projects)
+
+### 4.3 Generate `docs/PROJECT_BRIEF.md`
+
+```bash
+mkdir -p docs
+```
+
+Create `docs/PROJECT_BRIEF.md` using `templates/PROJECT_BRIEF.md.template` as structural reference. Must include all 10 fields from the synthesis. Use the current date.
+
+### 4.4 Copy spec template
+
+Only if `.chama/templates/spec.md` does **NOT** exist:
+
+```bash
+mkdir -p .chama/templates
+```
+
+Copy the default spec template:
+```bash
+cp "$CHAMA_TEMPLATES/spec.md.default" .chama/templates/spec.md
+```
+
+If the file already exists, **do not touch it** — the user's custom template has absolute priority.
+
+### 4.5 Create directory structure
+
+Based on the components from the synthesis, create the directory structure:
+
+```bash
+mkdir -p <component_path_1> <component_path_2> ...
+```
+
+### 4.6 Generate `.gitignore`
+
+If `.gitignore` does not exist, generate one appropriate to the detected stack. Always include:
+```
+.chama/progress/
+.chama/reviews/
+```
+
+If `.gitignore` already exists, append only the `.chama/` entries if not already present.
+
+## Stage 5 — Summary + Optional Steps
+
+### 5.1 Show tree
+
+Display the created artifacts in tree format:
+
+```bash
+find . -name '.git' -prune -o -name 'node_modules' -prune -o -type f -print | head -50 | sort
+```
+
+Or use a formatted list if `tree` is not available.
+
+### 5.2 Optional steps
+
+Ask the user sequentially (one at a time):
+
+1. **Review artifacts?** — "Deseja revisar algum artefato gerado?" → If yes, show the requested file(s) content.
+
+2. **Git init + commit?** — Only if `.git` is not initialized: "Deseja inicializar o git e criar o commit inicial?"
+   ```bash
+   git init
+   git add .
+   git commit -m "chore: bootstrap project with /chama:new-project"
+   ```
+   If git is already initialized: "Deseja criar um commit com os artefatos gerados?"
+   ```bash
+   git add .chama.yml CLAUDE.md docs/PROJECT_BRIEF.md .chama/ .gitignore
+   git commit -m "chore: bootstrap project with /chama:new-project"
+   ```
+
+3. **Create remote repo?** — "Deseja criar o repositório remoto no GitHub?"
+   ```bash
+   gh repo create <repo-name> --private --source=. --push
+   ```
+   Ask if public or private.
+
+4. **Run `/chama:init`?** — "Deseja rodar `/chama:init` para configurar labels, board e project number?"
+
+### 5.3 Final message
+
+Show:
+- "Bootstrap completo!"
+- List of artifacts created
+- Suggested next steps: `/chama:init` (if not run), `/chama:ideas`, `/chama:architect`
+
+---
+
+## Merge Mode
+
+When existing artifacts are detected (pre-check), the entire flow changes to preserve the user's work.
+
+### General rules
+- **Never overwrite** without explicit confirmation per artifact
+- **Preserve existing content** by default
+- `.chama/templates/spec.md` is **never overwritten** (absolute priority of custom template)
+
+### Per-artifact merge behavior
+
+#### `.chama.yml`
+1. Read the existing file
+2. After synthesis, compare each field:
+   - Fields present in existing AND synthesis: keep existing value by default
+   - Fields present only in existing: preserve
+   - Fields present only in synthesis: propose adding
+3. Show a diff summary of proposed changes
+4. Ask: "Manter existente / Aplicar mudanças / Merge manual?"
+
+#### `CLAUDE.md`
+1. Read the existing file
+2. Compare sections — identify what's new in the generated version
+3. Propose adding only new sections or information
+4. Ask: "Manter existente / Adicionar seções novas / Ver diff?"
+
+#### `docs/PROJECT_BRIEF.md`
+1. If exists: show diff, ask to keep or replace
+2. If not exists: create normally
+
+#### `.chama/templates/spec.md`
+- **Always preserve.** Never offer to overwrite.
+- If it doesn't exist: copy from default template.
+
+#### `.gitignore`
+- If exists: only append missing `.chama/` entries
+- If not exists: create normally
+
+#### Directory structure
+- Only create directories that don't exist yet
+- Never delete existing directories
