@@ -380,8 +380,8 @@ while IFS='§' read -r r_id r_severity r_scope r_file_patterns r_line_pattern r_
 
     # Check line pattern match (grep -E for ERE)
     # Strip (?i) from pattern and use grep -i instead (portable across BSD/GNU grep)
-    local grep_flags="-qE"
-    local clean_pattern="$r_line_pattern"
+    grep_flags="-qE"
+    clean_pattern="$r_line_pattern"
     if [[ "$clean_pattern" == *'(?i)'* ]]; then
       grep_flags="-iqE"
       clean_pattern="${clean_pattern//\(\?i\)/}"

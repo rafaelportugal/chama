@@ -124,7 +124,11 @@ Before committing, run `/simplify` to simplify and refine the code.
 
 ### 3.1) Critical Gate (pre-commit)
 
-Before each commit, run the Critical Gate to detect destructive/dangerous operations:
+Stage files first, then run the Critical Gate (which inspects `git diff --cached`):
+
+```bash
+git add <files>
+```
 
 ```bash
 # Discover chama plugin path
@@ -142,12 +146,11 @@ GATE_EXIT=$?
 
 **Handle exit codes:**
 - `0` (clean): proceed normally with the commit.
-- `1` (CRITICAL/HIGH): **STOP**. Do NOT commit. Show the findings to the user and explain what was detected. Instruct the user to fix the issues or add an override (`<!-- chama:allow RULE_ID: justificativa -->`) in the PR body.
+- `1` (CRITICAL/HIGH): **STOP**. Do NOT commit. Unstage with `git reset HEAD` and show the findings to the user. Instruct the user to fix the issues or add an override (`<!-- chama:allow RULE_ID: justificativa -->`) in the PR body.
 - `2` (warnings): show the warnings and ask for user confirmation before proceeding with the commit.
 - `3` (error): warn the user about the gate error but allow the commit to proceed (fail-open).
 
 ```bash
-git add <files>
 git commit -m "feat: <objective description>"
 ```
 

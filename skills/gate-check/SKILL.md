@@ -14,12 +14,6 @@ Read `project.language` from `.chama.yml`. Respond in the configured language. D
 - Without arguments: analyzes the current working tree diff (`git diff`)
 - With `--commit <commitID>`: analyzes the diff of a specific commit vs its predecessor
 
-## Configuration
-
-```bash
-REPO="${CHAMA_REPO:-$(yq '.project.repo' .chama.yml 2>/dev/null)}"
-```
-
 ## Execution
 
 ### Resolve gate script path

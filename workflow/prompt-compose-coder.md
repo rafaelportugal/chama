@@ -121,7 +121,11 @@ Verify the task is `In Progress`. If not, STOP and show the error.
 
 ### 3.1) Critical Gate (pre-commit)
 
-Before each commit, run the Critical Gate to detect destructive/dangerous operations:
+Stage files first, then run the Critical Gate (which inspects `git diff --cached`):
+
+```bash
+git add <files>
+```
 
 ```bash
 # Discover chama plugin path
@@ -139,12 +143,11 @@ GATE_EXIT=$?
 
 **Handle exit codes (headless — no interactive prompts):**
 - `0` (clean): proceed normally with the commit.
-- `1` (CRITICAL/HIGH): **ABORT**. Do NOT commit. Print the findings and stop the pipeline. Exit with error.
+- `1` (CRITICAL/HIGH): **ABORT**. Do NOT commit. Run `git reset HEAD` to unstage, print the findings, and stop the pipeline. Exit with error.
 - `2` (warnings): log the warnings but proceed with the commit (no interactive confirmation in headless mode).
 - `3` (error): warn about the gate error but proceed with the commit (fail-open).
 
 ```bash
-git add <files>
 git commit -m "feat: <objective description>"
 ```
 
