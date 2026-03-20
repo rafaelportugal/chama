@@ -51,10 +51,34 @@ for COMPONENT in $COMPONENTS; do
 done
 ```
 
-4. Commit simplifications separately:
+4. Stage files and run Critical Gate to ensure no destructive operations were introduced:
 ```bash
 git add <files>
+```
+
+```bash
+# Discover chama plugin path
+if [ -d "chama/scripts" ]; then
+  GATE_SCRIPT="chama/scripts/run-critical-gate.sh"
+elif [ -d "${HOME}/.claude/plugins/chama/scripts" ]; then
+  GATE_SCRIPT="${HOME}/.claude/plugins/chama/scripts/run-critical-gate.sh"
+else
+  GATE_SCRIPT="scripts/run-critical-gate.sh"
+fi
+
+bash "$GATE_SCRIPT" --mode pre-commit
+GATE_EXIT=$?
+```
+
+**Handle exit codes (headless — no interactive prompts):**
+- `0` (clean): proceed with commit.
+- `1` (CRITICAL/HIGH): **ABORT**. Do NOT commit. Run `git reset HEAD` to unstage, print findings and stop.
+- `2` (warnings): log warnings but proceed.
+- `3` (error): warn but proceed (fail-open).
+
+5. Commit simplifications separately:
+```bash
 git commit -m "refactor: simplify <description>"
 ```
 
-If quality gates fail after simplification: fix and repeat.
+If quality gates or Critical Gate fail after simplification: fix and repeat.
