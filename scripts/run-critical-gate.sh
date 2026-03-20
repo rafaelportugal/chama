@@ -472,8 +472,7 @@ if [[ "$HAS_BLOCKING" == "true" ]]; then
   echo ""
   echo "❌ Gate BLOQUEADO — findings CRITICAL/HIGH requerem revisão."
   echo ""
-  echo "Para fazer override, adicione ao PR body:"
-  echo '  <!-- chama:allow RULE_ID: justificativa -->'
+  echo "Corrija os problemas identificados antes de prosseguir."
   exit 1
 fi
 

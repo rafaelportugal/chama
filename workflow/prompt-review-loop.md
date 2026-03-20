@@ -153,7 +153,7 @@ GATE_EXIT=$?
 
 **Handle exit codes:**
 - `0` (clean): proceed with merge.
-- `1` (CRITICAL/HIGH): **DO NOT merge**. Post a comment on the PR with the findings. Instruct the user to fix or add overrides (`<!-- chama:allow RULE_ID: justificativa -->`) in the PR body.
+- `1` (CRITICAL/HIGH): **DO NOT merge**. Post a comment on the PR with the findings. Instruct the user to fix the flagged issues before retrying the merge.
 - `2` (warnings): post a comment on the PR with warnings, but proceed with merge.
 - `3` (error): warn in PR comment but proceed with merge (fail-open).
 

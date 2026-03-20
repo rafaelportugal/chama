@@ -146,7 +146,7 @@ GATE_EXIT=$?
 
 **Handle exit codes:**
 - `0` (clean): proceed normally with the commit.
-- `1` (CRITICAL/HIGH): **STOP**. Do NOT commit. Unstage with `git reset HEAD` and show the findings to the user. Instruct the user to fix the issues or add an override (`<!-- chama:allow RULE_ID: justificativa -->`) in the PR body.
+- `1` (CRITICAL/HIGH): **STOP**. Do NOT commit. Unstage with `git reset HEAD` and show the findings to the user. Instruct the user to fix the flagged issues before retrying the commit.
 - `2` (warnings): show the warnings and ask for user confirmation before proceeding with the commit.
 - `3` (error): warn the user about the gate error but allow the commit to proceed (fail-open).
 

@@ -143,7 +143,7 @@ GATE_EXIT=$?
 
 **Handle exit codes (headless — no interactive prompts):**
 - `0` (clean): proceed normally with the commit.
-- `1` (CRITICAL/HIGH): **ABORT**. Do NOT commit. Run `git reset HEAD` to unstage, print the findings, and stop the pipeline. Exit with error.
+- `1` (CRITICAL/HIGH): **ABORT**. Do NOT commit. Run `git reset HEAD` to unstage, print the findings and stop the pipeline. The flagged issues must be fixed before retrying. Exit with error.
 - `2` (warnings): log the warnings but proceed with the commit (no interactive confirmation in headless mode).
 - `3` (error): warn about the gate error but proceed with the commit (fail-open).
 
