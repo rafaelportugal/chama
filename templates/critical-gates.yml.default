@@ -6,7 +6,7 @@
 #   severity: CRITICAL | HIGH | WARNING | INFO
 #   scope: added | removed | both
 #   file_patterns: list of globs
-#   line_pattern: regex (ERE — extended regex for grep -E)
+#   line_pattern: regex (ERE with common extensions: \s, \b; (?i) for case-insensitive)
 #   message: human-readable description
 
 rules:

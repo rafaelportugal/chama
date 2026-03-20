@@ -26,7 +26,14 @@ CHAMA_YML=".chama.yml"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mode)
-      MODE="${2:-standalone}"
+      if [[ $# -lt 2 ]] || [[ "${2}" == -* ]]; then
+        echo "ERROR: --mode requires one of: pre-commit, pre-merge, standalone" >&2
+        exit 3
+      fi
+      case "$2" in
+        pre-commit|pre-merge|standalone) MODE="$2" ;;
+        *) echo "ERROR: Unsupported mode: $2" >&2; exit 3 ;;
+      esac
       shift 2
       ;;
     --commit)
@@ -162,30 +169,34 @@ fi
 
 parse_diff() {
   local current_file=""
-  local current_line=0
+  local old_line=0
+  local new_line=0
 
   while IFS= read -r line; do
     if [[ "$line" =~ ^diff\ --git\ a/(.+)\ b/(.+)$ ]]; then
       current_file="${BASH_REMATCH[2]}"
-      current_line=0
+      old_line=0
+      new_line=0
       continue
     fi
 
-    if [[ "$line" =~ ^@@\ -[0-9]+(,[0-9]+)?\ \+([0-9]+)(,[0-9]+)?\ @@ ]]; then
-      current_line="${BASH_REMATCH[2]}"
+    if [[ "$line" =~ ^@@\ -([0-9]+)(,[0-9]+)?\ \+([0-9]+)(,[0-9]+)?\ @@ ]]; then
+      old_line="${BASH_REMATCH[1]}"
+      new_line="${BASH_REMATCH[3]}"
       continue
     fi
 
     if [[ "$line" =~ ^\+[^+] ]] || [[ "$line" =~ ^\+$ ]]; then
       local content="${line:1}"
-      printf '%s\t%s\t%s\t%s\n' "$current_file" "$current_line" "added" "$content"
-      current_line=$((current_line + 1))
+      printf '%s\t%s\t%s\t%s\n' "$current_file" "$new_line" "added" "$content"
+      new_line=$((new_line + 1))
       continue
     fi
 
     if [[ "$line" =~ ^-[^-] ]] || [[ "$line" =~ ^-$ ]]; then
       local content="${line:1}"
-      printf '%s\t%s\t%s\t%s\n' "$current_file" "$current_line" "removed" "$content"
+      printf '%s\t%s\t%s\t%s\n' "$current_file" "$old_line" "removed" "$content"
+      old_line=$((old_line + 1))
       continue
     fi
   done <<< "$DIFF_OUTPUT"
@@ -203,7 +214,7 @@ load_rules() {
   fi
 
   local rule_count
-  rule_count=$(yq "$yq_prefix | length" "$rules_source" 2>/dev/null || echo "0")
+  rule_count=$(yq "($yq_prefix) | length" "$rules_source" 2>/dev/null || echo "0")
 
   if [[ -z "$rule_count" ]] || [[ "$rule_count" -eq 0 ]]; then
     return 1
@@ -211,12 +222,12 @@ load_rules() {
 
   for i in $(seq 0 $((rule_count - 1))); do
     local id severity scope line_pattern message fp_raw
-    id=$(yq "${yq_prefix}[$i].id" "$rules_source" 2>/dev/null)
-    severity=$(yq "${yq_prefix}[$i].severity" "$rules_source" 2>/dev/null)
-    scope=$(yq "${yq_prefix}[$i].scope" "$rules_source" 2>/dev/null)
-    line_pattern=$(yq "${yq_prefix}[$i].line_pattern" "$rules_source" 2>/dev/null)
-    message=$(yq "${yq_prefix}[$i].message" "$rules_source" 2>/dev/null)
-    fp_raw=$(yq "${yq_prefix}[$i].file_patterns | .[]" "$rules_source" 2>/dev/null | tr '\n' '|')
+    id=$(yq "($yq_prefix)[$i].id" "$rules_source" 2>/dev/null)
+    severity=$(yq "($yq_prefix)[$i].severity" "$rules_source" 2>/dev/null)
+    scope=$(yq "($yq_prefix)[$i].scope" "$rules_source" 2>/dev/null)
+    line_pattern=$(yq "($yq_prefix)[$i].line_pattern" "$rules_source" 2>/dev/null)
+    message=$(yq "($yq_prefix)[$i].message" "$rules_source" 2>/dev/null)
+    fp_raw=$(yq "($yq_prefix)[$i].file_patterns | .[]" "$rules_source" 2>/dev/null | tr '\n' '|')
     fp_raw="${fp_raw%|}"
 
     # Use § as field delimiter (pipe is used inside file_patterns)
