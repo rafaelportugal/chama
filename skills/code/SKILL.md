@@ -122,6 +122,30 @@ Verify the task is in `$STATUS_IN_PROGRESS`. If not, STOP and show the error.
 
 Before committing, run `/simplify` to simplify and refine the code.
 
+### 3.1) Critical Gate (pre-commit)
+
+Before each commit, run the Critical Gate to detect destructive/dangerous operations:
+
+```bash
+# Discover chama plugin path
+if [ -d "chama/scripts" ]; then
+  GATE_SCRIPT="chama/scripts/run-critical-gate.sh"
+elif [ -d "${HOME}/.claude/plugins/chama/scripts" ]; then
+  GATE_SCRIPT="${HOME}/.claude/plugins/chama/scripts/run-critical-gate.sh"
+else
+  GATE_SCRIPT="scripts/run-critical-gate.sh"
+fi
+
+bash "$GATE_SCRIPT" --mode pre-commit
+GATE_EXIT=$?
+```
+
+**Handle exit codes:**
+- `0` (clean): proceed normally with the commit.
+- `1` (CRITICAL/HIGH): **STOP**. Do NOT commit. Show the findings to the user and explain what was detected. Instruct the user to fix the issues or add an override (`<!-- chama:allow RULE_ID: justificativa -->`) in the PR body.
+- `2` (warnings): show the warnings and ask for user confirmation before proceeding with the commit.
+- `3` (error): warn the user about the gate error but allow the commit to proceed (fail-open).
+
 ```bash
 git add <files>
 git commit -m "feat: <objective description>"

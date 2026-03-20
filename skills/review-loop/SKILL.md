@@ -124,6 +124,30 @@ Condition:
 - CI/checks green.
 - PR mergeable.
 
+#### Critical Gate (pre-merge)
+
+Before merging, run the Critical Gate to detect destructive/dangerous operations:
+
+```bash
+# Discover chama plugin path
+if [ -d "chama/scripts" ]; then
+  GATE_SCRIPT="chama/scripts/run-critical-gate.sh"
+elif [ -d "${HOME}/.claude/plugins/chama/scripts" ]; then
+  GATE_SCRIPT="${HOME}/.claude/plugins/chama/scripts/run-critical-gate.sh"
+else
+  GATE_SCRIPT="scripts/run-critical-gate.sh"
+fi
+
+bash "$GATE_SCRIPT" --mode pre-merge
+GATE_EXIT=$?
+```
+
+**Handle exit codes:**
+- `0` (clean): proceed with merge.
+- `1` (CRITICAL/HIGH): **DO NOT merge**. Post a comment on the PR with the findings. Instruct the user to fix or add overrides (`<!-- chama:allow RULE_ID: justificativa -->`) in the PR body.
+- `2` (warnings): post a comment on the PR with warnings, but proceed with merge.
+- `3` (error): warn in PR comment but proceed with merge (fail-open).
+
 Execute:
 ```bash
 gh pr checks "$PR_NUMBER" --watch
