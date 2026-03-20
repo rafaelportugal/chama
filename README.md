@@ -126,15 +126,81 @@ Instead of local `.md` files, ideas and Specs live as GitHub Issues:
 
 ## Headless / Compose Mode
 
-For automated execution without manual intervention:
+For automated execution without manual intervention.
+
+### Setup
+
+Add the `chama-compose` function to your `~/.zshrc` (or `~/.bashrc`):
 
 ```bash
-# Via shell function (see agent/README.md)
+# ─── Chama SDLC Pipeline ─────────────────────────────────────────────────────
+_chama_find_plugin() {
+  local root_dir
+  root_dir="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+  # 1) Running from chama repo itself
+  if [[ -d "$root_dir/workflow" && -f "$root_dir/.claude-plugin/plugin.json" ]]; then
+    echo "$root_dir"; return 0
+  fi
+
+  # 2) Local chama/ subdir in project
+  if [[ -d "$root_dir/chama/workflow" ]]; then
+    echo "$root_dir/chama"; return 0
+  fi
+
+  # 3) Global plugin cache (versioned — pick latest)
+  local cache_dir="$HOME/.claude/plugins/cache/chama/chama"
+  if [[ -d "$cache_dir" ]]; then
+    local latest
+    latest=$(ls -d "$cache_dir"/*/ 2>/dev/null | sort -V | tail -1)
+    if [[ -n "$latest" && -d "${latest}workflow" ]]; then
+      echo "${latest%/}"; return 0
+    fi
+  fi
+
+  # 4) Legacy global path
+  if [[ -d "$HOME/.claude/plugins/chama/workflow" ]]; then
+    echo "$HOME/.claude/plugins/chama"; return 0
+  fi
+
+  echo "ERROR: chama plugin not found." >&2
+  return 1
+}
+
+chama-compose() {
+  local chama_dir
+  chama_dir=$(_chama_find_plugin) || return 1
+  echo "Using chama plugin: $chama_dir"
+  bash "$chama_dir/workflow/scripts/chama-pipeline.sh" "$@"
+}
+```
+
+Then reload your shell:
+
+```bash
+source ~/.zshrc
+```
+
+The function resolves the plugin path automatically:
+1. **Chama repo itself** — if you're inside the chama project
+2. **Local `chama/` subdir** — if the project has a local copy
+3. **Global plugin cache** — `~/.claude/plugins/cache/chama/chama/<version>/` (picks latest)
+4. **Legacy global** — `~/.claude/plugins/chama/`
+
+### Usage
+
+```bash
+# Run from any project with .chama.yml
 chama-compose
 
-# Or directly
-bash chama/workflow/scripts/chama-pipeline.sh
+# Limit to 1 task
+MAX_TASKS=1 chama-compose
+
+# Custom review rounds and failure behavior
+MAX_TASKS=3 MAX_REVIEW_ROUNDS=4 STOP_ON_REVIEW_FAILURE=true chama-compose
 ```
+
+### Pipeline phases
 
 The compose orchestrator runs 5 phases per task:
 1. **Coder** — identify task, create branch, implement, validate, commit
