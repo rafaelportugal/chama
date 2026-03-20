@@ -94,8 +94,27 @@ personas:
   - name: "<persona>"
     description: "<description>"
 
+critical_gates:
+  enabled: true
+  fail_mode: open
+  severity_block:
+    - CRITICAL
+    - HIGH
+  override_pattern: "chama:allow"
+  scan_points:
+    - pre_commit
+    - pre_merge
+  ignore_files:
+    - "**/*.test.*"
+    - "**/fixtures/**"
+    - "**/__mocks__/**"
+
 business_segment: "<segment>"
 ```
+
+The `critical_gates` section is always included with sensible defaults. If the project has specific paths to ignore or custom rules for monorepo components, adjust during generation:
+- Add component-specific paths to `ignore_files` (e.g., `"**/generated/**"`)
+- Add `custom_rules` with `file_patterns` for monorepo policies (e.g., rules scoped to `**/billing/**`)
 
 ## Step 5 — Generate `CLAUDE.md`
 
@@ -122,5 +141,7 @@ At the end, show:
 1. Files created/updated
 2. Labels created
 3. GitHub Project configured
-4. Next step: "Run `/chama:ideas` to start brainstorming your first feature"
-5. Tip: "You can add `knowledge_paths` to `.chama.yml` to feed domain docs, ADRs, and contracts into the architect. See the commented example in your `.chama.yml`."
+4. Critical Gate configuration included with defaults
+5. Next step: "Run `/chama:ideas` to start brainstorming your first feature"
+6. Tip: "You can add `knowledge_paths` to `.chama.yml` to feed domain docs, ADRs, and contracts into the architect. See the commented example in your `.chama.yml`."
+7. Tip: "Critical Gate is enabled by default. Customize `critical_gates.ignore_files` and `critical_gates.custom_rules` in `.chama.yml` for project-specific policies."
