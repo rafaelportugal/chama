@@ -97,6 +97,7 @@ DEFAULT_RULES_FILE="${CHAMA_DIR}/templates/critical-gates.yml.default"
 GATE_ENABLED="true"
 FAIL_MODE="open"
 SEVERITY_BLOCK_LIST="CRITICAL HIGH"
+OVERRIDE_PATTERN="chama:allow"
 IGNORE_FILES_RAW=""
 
 if [[ -f "$CHAMA_YML" ]]; then
@@ -109,6 +110,11 @@ if [[ -f "$CHAMA_YML" ]]; then
   fi
 
   IGNORE_FILES_RAW=$(yq '.critical_gates.ignore_files // [] | .[]' "$CHAMA_YML" 2>/dev/null || true)
+
+  _override_pat=$(yq '.critical_gates.override_pattern // ""' "$CHAMA_YML" 2>/dev/null || true)
+  if [[ -n "$_override_pat" ]]; then
+    OVERRIDE_PATTERN="$_override_pat"
+  fi
 fi
 
 if [[ "$GATE_ENABLED" == "false" ]]; then
@@ -156,13 +162,13 @@ load_overrides_from_pr() {
     return 0
   fi
 
-  # Extract overrides: <!-- chama:allow RULE_ID: justification -->
-  # Also supports <!-- chama:allow RULE_ID --> (no justification)
-  echo "$pr_body" | grep -oE '<!--[[:space:]]*chama:allow[[:space:]]+[A-Za-z0-9_]+[^>]*-->' | while IFS= read -r match; do
+  # Extract overrides: <!-- OVERRIDE_PATTERN RULE_ID: justification -->
+  # Also supports <!-- OVERRIDE_PATTERN RULE_ID --> (no justification)
+  echo "$pr_body" | grep -oE "<!--[[:space:]]*${OVERRIDE_PATTERN}[[:space:]]+[A-Za-z0-9_]+[^>]*-->" | while IFS= read -r match; do
     # Extract rule ID and justification
     local rule_id justification
-    rule_id=$(echo "$match" | sed -E 's/<!--[[:space:]]*chama:allow[[:space:]]+([A-Za-z0-9_]+).*/\1/')
-    justification=$(echo "$match" | sed -E 's/<!--[[:space:]]*chama:allow[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:?[[:space:]]*(.*)[[:space:]]*-->/\1/' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    rule_id=$(echo "$match" | sed -E "s/<!--[[:space:]]*${OVERRIDE_PATTERN}[[:space:]]+([A-Za-z0-9_]+).*/\1/")
+    justification=$(echo "$match" | sed -E "s/<!--[[:space:]]*${OVERRIDE_PATTERN}[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:?[[:space:]]*(.*)[[:space:]]*-->/\1/" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
     # Store: RULE_ID<TAB>JUSTIFICATION
     printf '%s\t%s\n' "$rule_id" "$justification"
@@ -672,7 +678,7 @@ post_pr_comment() {
     local seen_ids=""
     while IFS='§' read -r f_sev f_id _rest; do
       if [[ "$seen_ids" != *"|${f_id}|"* ]]; then
-        comment_body+="<!-- chama:allow ${f_id}: <justification required for CRITICAL/HIGH> -->\n"
+        comment_body+="<!-- ${OVERRIDE_PATTERN} ${f_id}: <justification required for CRITICAL/HIGH> -->\n"
         seen_ids="${seen_ids}|${f_id}|"
       fi
     done < "$BLOCKED_FILE"
@@ -727,7 +733,7 @@ if [[ "$HAS_BLOCKING" == "true" ]]; then
   if [[ -n "$PR_NUMBER" ]]; then
     echo ""
     echo "Adicione overrides no body do PR para permitir findings específicos."
-    echo "Formato: <!-- chama:allow RULE_ID: justificativa -->"
+    echo "Formato: <!-- ${OVERRIDE_PATTERN} RULE_ID: justificativa -->"
   else
     echo ""
     echo "Corrija os problemas identificados antes de prosseguir."

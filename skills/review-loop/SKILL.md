@@ -138,7 +138,7 @@ else
   GATE_SCRIPT="scripts/run-critical-gate.sh"
 fi
 
-bash "$GATE_SCRIPT" --mode pre-merge
+bash "$GATE_SCRIPT" --mode pre-merge --pr "$PR_NUMBER"
 GATE_EXIT=$?
 ```
 
