@@ -127,7 +127,12 @@ get_diff() {
           echo "ERROR: Invalid commit ID: $COMMIT_ID" >&2
           return 1
         fi
-        git diff "${COMMIT_ID}~1" "$COMMIT_ID" -U0
+        if git rev-parse --verify "${COMMIT_ID}~1" >/dev/null 2>&1; then
+          git diff "${COMMIT_ID}~1" "$COMMIT_ID" -U0
+        else
+          # Initial commit — diff against empty tree
+          git diff "$(git hash-object -t tree /dev/null)" "$COMMIT_ID" -U0
+        fi
       else
         git diff -U0
       fi
@@ -354,7 +359,14 @@ while IFS='§' read -r r_id r_severity r_scope r_file_patterns r_line_pattern r_
     fi
 
     # Check line pattern match (grep -E for ERE)
-    if echo "$content" | grep -qE "$r_line_pattern" 2>/dev/null; then
+    # Strip (?i) from pattern and use grep -i instead (portable across BSD/GNU grep)
+    local grep_flags="-qE"
+    local clean_pattern="$r_line_pattern"
+    if [[ "$clean_pattern" == *'(?i)'* ]]; then
+      grep_flags="-iqE"
+      clean_pattern="${clean_pattern//\(\?i\)/}"
+    fi
+    if echo "$content" | grep $grep_flags "$clean_pattern" 2>/dev/null; then
       printf '%s§%s§%s§%s§%s§%s\n' "$r_severity" "$r_id" "$file" "$line_num" "$r_message" "$content" >> "$FINDINGS_FILE"
 
       case "$r_severity" in
