@@ -6,7 +6,7 @@ set -uo pipefail
 # Classifies findings by severity and blocks on CRITICAL/HIGH.
 #
 # Usage:
-#   scripts/run-critical-gate.sh [--mode pre-commit|pre-merge|standalone] [--commit <ID>]
+#   scripts/run-critical-gate.sh [--mode pre-commit|pre-merge|standalone] [--commit <ID>] [--pr <number>]
 #
 # Exit codes:
 #   0 = clean (no findings, or INFO only)
@@ -501,7 +501,7 @@ while IFS='§' read -r f_sev f_id f_file f_line f_msg f_content; do
     ALLOWED_COUNT=$((ALLOWED_COUNT + 1))
   else
     # Check if override exists but was rejected (no justification for CRITICAL/HIGH)
-    if grep -q "^${f_id}	" "$OVERRIDES_FILE" 2>/dev/null; then
+    if grep -Fq "${f_id}	" "$OVERRIDES_FILE" 2>/dev/null; then
       printf '%s§%s§%s§%s§%s§%s\n' "$f_sev" "$f_id" "$f_file" "$f_line" "$f_msg" "$f_content" >> "$REJECTED_OVERRIDES_FILE"
       REJECTED_OVERRIDE_COUNT=$((REJECTED_OVERRIDE_COUNT + 1))
     fi
@@ -517,12 +517,13 @@ if [[ $TOTAL_FINDINGS -eq 0 ]]; then
   echo "✓ Nenhuma operação crítica detectada"
   # Update PR comment if one exists (to show clean state on re-run)
   if [[ -n "$PR_NUMBER" ]] && [[ -n "$REPO" ]] && command -v gh >/dev/null 2>&1; then
-    local_marker="⚠ Critical Gate — Findings"
+    local_marker="<!-- chama:critical-gate -->"
     local_existing_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --jq ".[] | select(.body | contains(\"$local_marker\")) | .id" 2>/dev/null | head -1)
     if [[ -n "$local_existing_id" ]]; then
       gh api "repos/${REPO}/issues/comments/${local_existing_id}" \
         --method PATCH \
-        --field body="## ✅ Critical Gate — Clean
+        --field body="<!-- chama:critical-gate -->
+## ✅ Critical Gate — Clean
 
 Nenhuma operação crítica detectada.
 
@@ -554,12 +555,12 @@ for sev in CRITICAL HIGH WARNING INFO; do
   while IFS='§' read -r f_sev f_id f_file f_line f_msg f_content; do
     if [[ "$f_sev" == "$sev" ]]; then
       local_allowed=""
-      if grep -q "^${f_sev}§${f_id}§${f_file}§${f_line}§" "$ALLOWED_FILE" 2>/dev/null; then
+      if grep -Fq "${f_sev}§${f_id}§${f_file}§${f_line}§" "$ALLOWED_FILE" 2>/dev/null; then
         local_allowed=" ✅ ALLOWED"
       fi
 
       local_rejected=""
-      if grep -q "^${f_sev}§${f_id}§${f_file}§${f_line}§" "$REJECTED_OVERRIDES_FILE" 2>/dev/null; then
+      if grep -Fq "${f_sev}§${f_id}§${f_file}§${f_line}§" "$REJECTED_OVERRIDES_FILE" 2>/dev/null; then
         local_rejected=" ⛔ OVERRIDE REJECTED"
       fi
 
@@ -620,15 +621,16 @@ post_pr_comment() {
   fi
 
   local comment_body=""
+  comment_body+="<!-- chama:critical-gate -->\n"
   comment_body+="## ⚠ Critical Gate — Findings\n\n"
   comment_body+="| Severity | Rule | File | Line | Message | Status |\n"
   comment_body+="|----------|------|------|------|---------|--------|\n"
 
   while IFS='§' read -r f_sev f_id f_file f_line f_msg f_content; do
     local status_icon="❌ Blocked"
-    if grep -q "^${f_sev}§${f_id}§${f_file}§${f_line}§" "$ALLOWED_FILE" 2>/dev/null; then
+    if grep -Fq "${f_sev}§${f_id}§${f_file}§${f_line}§" "$ALLOWED_FILE" 2>/dev/null; then
       status_icon="✅ Allowed"
-    elif grep -q "^${f_sev}§${f_id}§${f_file}§${f_line}§" "$REJECTED_OVERRIDES_FILE" 2>/dev/null; then
+    elif grep -Fq "${f_sev}§${f_id}§${f_file}§${f_line}§" "$REJECTED_OVERRIDES_FILE" 2>/dev/null; then
       status_icon="⛔ Override Rejected"
     fi
 
@@ -684,8 +686,8 @@ post_pr_comment() {
   local formatted_body
   formatted_body=$(printf '%b' "$comment_body")
 
-  # Look for existing comment to update (by marker)
-  local comment_marker="⚠ Critical Gate — Findings"
+  # Look for existing comment to update (by stable marker)
+  local comment_marker="<!-- chama:critical-gate -->"
   local existing_comment_id
   existing_comment_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --jq ".[] | select(.body | contains(\"$comment_marker\")) | .id" 2>/dev/null | head -1)
 
