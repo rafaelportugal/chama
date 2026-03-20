@@ -1,0 +1,478 @@
+# Chama Critical Gates — Default Rules Catalog
+# ~40 rules across 6 domains: Database, Security, Infrastructure, Kubernetes, Config, Data
+#
+# Rule format:
+#   id: <DOMAIN><NUMBER>    (e.g., DS101)
+#   severity: CRITICAL | HIGH | WARNING | INFO
+#   scope: added | removed | both
+#   file_patterns: list of globs
+#   line_pattern: regex (ERE with common extensions: \s, \b; (?i) for case-insensitive)
+#   message: human-readable description
+
+rules:
+
+  # ═══════════════════════════════════════════════════════════════
+  # Database (DS) — ~10 rules
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: DS101
+    severity: CRITICAL
+    scope: added
+    file_patterns:
+      - "*.sql"
+      - "*/migrations/*"
+    line_pattern: "(?i)DROP\\s+DATABASE"
+    message: "DROP DATABASE detectado — operação destrutiva irreversível"
+
+  - id: DS102
+    severity: CRITICAL
+    scope: added
+    file_patterns:
+      - "*.sql"
+      - "*/migrations/*"
+    line_pattern: "(?i)DROP\\s+TABLE"
+    message: "DROP TABLE detectado — operação destrutiva irreversível"
+
+  - id: DS103
+    severity: CRITICAL
+    scope: added
+    file_patterns:
+      - "*.sql"
+      - "*/migrations/*"
+    line_pattern: "(?i)TRUNCATE\\s+(TABLE\\s+)?[a-zA-Z_]"
+    message: "TRUNCATE TABLE detectado — remove todos os dados sem log"
+
+  - id: DS104
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.sql"
+      - "*/migrations/*"
+    line_pattern: "(?i)DROP\\s+COLUMN"
+    message: "DROP COLUMN detectado — remoção de coluna pode quebrar queries existentes"
+
+  - id: DS105
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.sql"
+      - "*/migrations/*"
+    line_pattern: "(?i)ALTER\\s+TABLE\\s+.*DROP"
+    message: "ALTER TABLE ... DROP detectado — remoção de elemento da tabela"
+
+  - id: DS106
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.sql"
+      - "*/migrations/*"
+    line_pattern: "(?i)DELETE\\s+FROM\\s+[a-zA-Z_]+\\s*$"
+    message: "DELETE FROM sem WHERE detectado — pode apagar todos os registros"
+
+  - id: DS107
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.sql"
+      - "*/migrations/*"
+    line_pattern: "(?i)DELETE\\s+FROM\\s+[a-zA-Z_]+\\s*;"
+    message: "DELETE FROM sem WHERE detectado — pode apagar todos os registros"
+
+  - id: DS108
+    severity: WARNING
+    scope: added
+    file_patterns:
+      - "*.sql"
+      - "*/migrations/*"
+    line_pattern: "(?i)RENAME\\s+TABLE"
+    message: "RENAME TABLE detectado — pode quebrar referências existentes"
+
+  - id: DS109
+    severity: WARNING
+    scope: added
+    file_patterns:
+      - "*.sql"
+      - "*/migrations/*"
+    line_pattern: "(?i)ALTER\\s+TABLE\\s+.*RENAME"
+    message: "ALTER TABLE RENAME detectado — pode quebrar referências existentes"
+
+  - id: DS110
+    severity: INFO
+    scope: added
+    file_patterns:
+      - "*.sql"
+      - "*/migrations/*"
+    line_pattern: "(?i)ALTER\\s+TABLE\\s+.*MODIFY"
+    message: "ALTER TABLE MODIFY detectado — mudança de tipo de coluna pode causar perda de dados"
+
+  # ═══════════════════════════════════════════════════════════════
+  # Security (SEC) — ~8 rules
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: SEC101
+    severity: CRITICAL
+    scope: removed
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+    line_pattern: "(?i)(authenticate|authorization|auth_required|@login_required|isAuthenticated|requireAuth)"
+    message: "Remoção de middleware/decorator de autenticação detectada"
+
+  - id: SEC102
+    severity: CRITICAL
+    scope: removed
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+    line_pattern: "(?i)(csrf_protect|csrf_exempt|csrftoken|anti.?forgery|@csrf)"
+    message: "Remoção de proteção CSRF detectada"
+
+  - id: SEC103
+    severity: HIGH
+    scope: removed
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+    line_pattern: "(?i)(rate.?limit|throttle|RateLimiter|@throttle)"
+    message: "Remoção de rate limiting detectada — pode expor a ataques de força bruta"
+
+  - id: SEC104
+    severity: CRITICAL
+    scope: added
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+      - "*.yml"
+      - "*.yaml"
+      - "*.json"
+      - "*.toml"
+      - "*.env"
+    line_pattern: "(password|secret|api_key|apikey|token|private_key)\\s*[:=]\\s*[\"'][^\"']{8,}[\"']"
+    message: "Possível secret/credencial hardcoded detectado"
+
+  - id: SEC105
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.yml"
+      - "*.yaml"
+      - "*.json"
+      - "*.toml"
+    line_pattern: "(?i)(ssl|tls)\\s*[:=]\\s*(false|disable|off|0)"
+    message: "TLS/SSL desabilitado — comunicação sem criptografia"
+
+  - id: SEC106
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+    line_pattern: "(?i)(verify\\s*[:=]\\s*false|InsecureSkipVerify\\s*[:=]\\s*true|NODE_TLS_REJECT_UNAUTHORIZED\\s*[:=]\\s*[\"']?0)"
+    message: "Verificação de certificado desabilitada — vulnerável a MITM"
+
+  - id: SEC107
+    severity: WARNING
+    scope: removed
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+    line_pattern: "(?i)(sanitize|escape|encode|purify|xss|htmlspecialchars)"
+    message: "Remoção de sanitização/encoding detectada — possível XSS"
+
+  - id: SEC108
+    severity: WARNING
+    scope: added
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+    line_pattern: "(?i)(eval|exec|system|popen|subprocess\\.call|child_process\\.exec)\\s*\\("
+    message: "Execução dinâmica de código detectada — risco de injeção"
+
+  # ═══════════════════════════════════════════════════════════════
+  # Infrastructure (IaC) — ~6 rules
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: IAC101
+    severity: CRITICAL
+    scope: added
+    file_patterns:
+      - "*.tf"
+      - "*.hcl"
+    line_pattern: "(?i)(destroy|force_destroy)\\s*=\\s*true"
+    message: "Resource destroy habilitado — pode destruir infraestrutura"
+
+  - id: IAC102
+    severity: CRITICAL
+    scope: added
+    file_patterns:
+      - "*.tf"
+      - "*.hcl"
+    line_pattern: "(?i)prevent_destroy\\s*=\\s*false"
+    message: "prevent_destroy desabilitado — recurso pode ser destruído acidentalmente"
+
+  - id: IAC103
+    severity: HIGH
+    scope: both
+    file_patterns:
+      - "*.tf"
+      - "*.hcl"
+    line_pattern: "(?i)(iam_policy|iam_role|iam_user|aws_iam)"
+    message: "Mudança em IAM detectada — alteração de permissões pode causar escalação de privilégios"
+
+  - id: IAC104
+    severity: HIGH
+    scope: removed
+    file_patterns:
+      - "*.tf"
+      - "*.hcl"
+    line_pattern: "(?i)(security_group|firewall_rule|network_acl)"
+    message: "Remoção de security group/firewall rule detectada"
+
+  - id: IAC105
+    severity: WARNING
+    scope: added
+    file_patterns:
+      - "*.tf"
+      - "*.hcl"
+    line_pattern: "(?i)cidr_blocks\\s*=\\s*\\[\\s*\"0\\.0\\.0\\.0/0\""
+    message: "CIDR 0.0.0.0/0 detectado — acesso público irrestrito"
+
+  - id: IAC106
+    severity: WARNING
+    scope: added
+    file_patterns:
+      - "*.tf"
+      - "*.hcl"
+      - "*.yml"
+      - "*.yaml"
+    line_pattern: "(?i)(publicly_accessible|public_access)\\s*[:=]\\s*(true|yes)"
+    message: "Recurso marcado como publicamente acessível"
+
+  # ═══════════════════════════════════════════════════════════════
+  # Kubernetes (K8S) — ~6 rules
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: K8S101
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.yml"
+      - "*.yaml"
+    line_pattern: "privileged:\\s*true"
+    message: "Container privilegiado detectado — acesso total ao host"
+
+  - id: K8S102
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.yml"
+      - "*.yaml"
+    line_pattern: "hostPath:"
+    message: "hostPath mount detectado — acesso ao filesystem do host"
+
+  - id: K8S103
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.yml"
+      - "*.yaml"
+    line_pattern: "runAsUser:\\s*0"
+    message: "Container rodando como root (UID 0) detectado"
+
+  - id: K8S104
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.yml"
+      - "*.yaml"
+    line_pattern: "runAsNonRoot:\\s*false"
+    message: "runAsNonRoot desabilitado — container pode rodar como root"
+
+  - id: K8S105
+    severity: WARNING
+    scope: added
+    file_patterns:
+      - "*.yml"
+      - "*.yaml"
+    line_pattern: "(?i)(SYS_ADMIN|NET_ADMIN|ALL)"
+    message: "Capability perigosa adicionada ao container"
+
+  - id: K8S106
+    severity: WARNING
+    scope: added
+    file_patterns:
+      - "*.yml"
+      - "*.yaml"
+    line_pattern: "hostNetwork:\\s*true"
+    message: "hostNetwork habilitado — container compartilha rede do host"
+
+  # ═══════════════════════════════════════════════════════════════
+  # Config (CFG) — ~5 rules
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: CFG101
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.yml"
+      - "*.yaml"
+      - "*.json"
+      - "*.toml"
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    line_pattern: "(?i)(cors|access-control-allow-origin).*\\*"
+    message: "CORS wildcard (*) detectado — permite requests de qualquer origem"
+
+  - id: CFG102
+    severity: WARNING
+    scope: added
+    file_patterns:
+      - "*.yml"
+      - "*.yaml"
+      - "*.json"
+      - "*.toml"
+      - "*.env"
+      - "Dockerfile"
+      - "docker-compose*.yml"
+    line_pattern: "(?i)(debug|DEBUG)\\s*[:=]\\s*(true|1|yes|on)"
+    message: "Debug mode habilitado — pode expor informações sensíveis"
+
+  - id: CFG103
+    severity: WARNING
+    scope: added
+    file_patterns:
+      - "*.yml"
+      - "*.yaml"
+      - "*.json"
+      - "*.toml"
+      - "Dockerfile"
+      - "docker-compose*.yml"
+    line_pattern: "(?i)(log_level|LOG_LEVEL|logging\\.level)\\s*[:=]\\s*(debug|DEBUG|trace|TRACE)"
+    message: "Log level debug/trace em produção pode expor dados sensíveis"
+
+  - id: CFG104
+    severity: WARNING
+    scope: added
+    file_patterns:
+      - "Dockerfile"
+      - "docker-compose*.yml"
+      - "*.yml"
+      - "*.yaml"
+    line_pattern: "(?i)(EXPOSE|ports:).*\\b(22|3389|5432|3306|6379|27017|9200|11211)\\b"
+    message: "Porta de serviço sensível exposta (DB, cache, SSH, RDP)"
+
+  - id: CFG105
+    severity: INFO
+    scope: removed
+    file_patterns:
+      - "*.yml"
+      - "*.yaml"
+      - "*.json"
+      - "*.toml"
+      - "*.env"
+    line_pattern: "(?i)(timeout|TIMEOUT|read_timeout|write_timeout|connect_timeout)"
+    message: "Remoção de configuração de timeout — pode causar conexões penduradas"
+
+  # ═══════════════════════════════════════════════════════════════
+  # Data (DAT) — ~5 rules
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: DAT101
+    severity: CRITICAL
+    scope: added
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+    line_pattern: "(?i)(delete_all|destroy_all|removeAll|bulk_delete|mass_delete|purge)"
+    message: "Operação de deleção em massa detectada"
+
+  - id: DAT102
+    severity: HIGH
+    scope: added
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+      - "*.yml"
+      - "*.yaml"
+      - "*.json"
+    line_pattern: "(?i)(ssn|social_security|cpf|cnpj|passport_number|credit_card|card_number)"
+    message: "Possível exposição de PII (dados pessoais sensíveis) detectada"
+
+  - id: DAT103
+    severity: HIGH
+    scope: removed
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+    line_pattern: "(?i)(encrypt|decrypt|cipher|aes|rsa|sha256|bcrypt|argon2|hash)"
+    message: "Remoção de criptografia/hashing detectada"
+
+  - id: DAT104
+    severity: WARNING
+    scope: added
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+    line_pattern: "(?i)(print|console\\.log|logger\\.(info|debug)).*(?i)(password|token|secret|key|credential)"
+    message: "Possível log de dados sensíveis detectado"
+
+  - id: DAT105
+    severity: WARNING
+    scope: removed
+    file_patterns:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.rb"
+      - "*.go"
+      - "*.java"
+    line_pattern: "(?i)(mask|redact|obfuscate|anonymize)"
+    message: "Remoção de mascaramento/redação de dados detectada"
