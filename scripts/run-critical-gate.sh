@@ -119,7 +119,7 @@ get_diff() {
     pre-merge)
       local default_branch
       default_branch=$(yq '.github.default_branch // "main"' "$CHAMA_YML" 2>/dev/null || echo "main")
-      git diff "$default_branch" -U0
+      git diff "$default_branch"...HEAD -U0
       ;;
     standalone)
       if [[ -n "$COMMIT_ID" ]]; then
@@ -242,12 +242,18 @@ matches_glob() {
     local mid="${pat#\*/}"
     mid="${mid%/\*}"
     case "$file" in */${mid}/*|${mid}/*) return 0 ;; esac
-  elif [[ "$pat" == "*."* ]]; then
-    # *.ext → extension match
-    local ext="${pat#\*.}"
-    case "$file" in *.${ext}) return 0 ;; esac
+  elif [[ "$pat" == \*\.* && "$pat" != *"/"* ]]; then
+    # *.ext or prefix*.ext → use bash pattern matching directly
+    # Disable pathname expansion for safe case matching
+    set -f
+    case "$file" in
+      */${pat}|${pat}) set +f; return 0 ;;
+    esac
+    set +f
   else
-    case "$file" in ${pat}) return 0 ;; esac
+    set -f
+    case "$file" in ${pat}) set +f; return 0 ;; esac
+    set +f
   fi
 
   return 1
@@ -272,7 +278,10 @@ file_matches_patterns() {
 
   local OLD_IFS="$IFS"
   IFS='|'
+  # Disable pathname expansion so globs like *.sql are not expanded
+  set -f
   set -- $patterns
+  set +f
   IFS="$OLD_IFS"
 
   for pat in "$@"; do
