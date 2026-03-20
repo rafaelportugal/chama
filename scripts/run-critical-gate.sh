@@ -19,6 +19,7 @@ set -uo pipefail
 
 MODE="standalone"
 COMMIT_ID=""
+PR_NUMBER=""
 CHAMA_YML=".chama.yml"
 
 # ─── Parse arguments ────────────────────────────────────────────────────────
@@ -40,6 +41,14 @@ while [[ $# -gt 0 ]]; do
       COMMIT_ID="${2:-}"
       if [[ -z "$COMMIT_ID" ]]; then
         echo "ERROR: --commit requires a commit ID" >&2
+        exit 3
+      fi
+      shift 2
+      ;;
+    --pr)
+      PR_NUMBER="${2:-}"
+      if [[ -z "$PR_NUMBER" ]]; then
+        echo "ERROR: --pr requires a PR number" >&2
         exit 3
       fi
       shift 2
@@ -115,6 +124,82 @@ if [[ -n "$IGNORE_FILES_RAW" ]]; then
     [[ -n "$pattern" ]] && IGNORE_PATTERNS+=("$pattern")
   done <<< "$IGNORE_FILES_RAW"
 fi
+
+# ─── Load repo config for gh commands ─────────────────────────────────────────
+
+REPO=""
+if [[ -f "$CHAMA_YML" ]]; then
+  REPO=$(yq '.project.repo // ""' "$CHAMA_YML" 2>/dev/null || echo "")
+fi
+REPO="${CHAMA_REPO:-$REPO}"
+
+# ─── Load overrides from PR body ──────────────────────────────────────────────
+# Pattern: <!-- chama:allow RULE_ID: justification -->
+
+OVERRIDES_FILE="$TMPDIR_GATE/overrides.txt"
+touch "$OVERRIDES_FILE"
+
+load_overrides_from_pr() {
+  local pr_num="$1"
+  if [[ -z "$pr_num" ]] || [[ -z "$REPO" ]]; then
+    return 0
+  fi
+
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "WARNING: gh CLI not available — cannot read PR overrides" >&2
+    return 0
+  fi
+
+  local pr_body
+  pr_body=$(gh pr view "$pr_num" --repo "$REPO" --json body --jq '.body' 2>/dev/null || true)
+  if [[ -z "$pr_body" ]]; then
+    return 0
+  fi
+
+  # Extract overrides: <!-- chama:allow RULE_ID: justification -->
+  # Also supports <!-- chama:allow RULE_ID --> (no justification)
+  echo "$pr_body" | grep -oE '<!--[[:space:]]*chama:allow[[:space:]]+[A-Za-z0-9_]+[^>]*-->' | while IFS= read -r match; do
+    # Extract rule ID and justification
+    local rule_id justification
+    rule_id=$(echo "$match" | sed -E 's/<!--[[:space:]]*chama:allow[[:space:]]+([A-Za-z0-9_]+).*/\1/')
+    justification=$(echo "$match" | sed -E 's/<!--[[:space:]]*chama:allow[[:space:]]+[A-Za-z0-9_]+[[:space:]]*:?[[:space:]]*(.*)[[:space:]]*-->/\1/' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+    # Store: RULE_ID<TAB>JUSTIFICATION
+    printf '%s\t%s\n' "$rule_id" "$justification"
+  done >> "$OVERRIDES_FILE"
+}
+
+if [[ -n "$PR_NUMBER" ]]; then
+  load_overrides_from_pr "$PR_NUMBER"
+fi
+
+# Check if a rule has a valid override
+# Returns 0 if overridden (allowed), 1 if not
+check_override() {
+  local rule_id="$1" severity="$2"
+
+  if [[ ! -s "$OVERRIDES_FILE" ]]; then
+    return 1
+  fi
+
+  local justification
+  justification=$(grep -m1 "^${rule_id}	" "$OVERRIDES_FILE" | cut -f2-)
+
+  if [[ -z "$justification" ]] && ! grep -q "^${rule_id}	" "$OVERRIDES_FILE"; then
+    # No override for this rule
+    return 1
+  fi
+
+  # CRITICAL and HIGH require non-empty justification
+  if [[ "$severity" == "CRITICAL" || "$severity" == "HIGH" ]]; then
+    if [[ -z "$justification" ]]; then
+      return 1  # Override rejected — no justification
+    fi
+  fi
+
+  # WARNING/INFO: override accepted even without justification
+  return 0
+}
 
 # ─── Get diff ────────────────────────────────────────────────────────────────
 
@@ -399,12 +484,51 @@ while IFS='§' read -r r_id r_severity r_scope r_file_patterns r_line_pattern r_
   done < "$DIFF_FILE"
 done < "$RULES_FILE"
 
+# ─── Apply overrides to findings ─────────────────────────────────────────────
+
+ALLOWED_FILE="$TMPDIR_GATE/allowed.txt"
+BLOCKED_FILE="$TMPDIR_GATE/blocked.txt"
+REJECTED_OVERRIDES_FILE="$TMPDIR_GATE/rejected_overrides.txt"
+touch "$ALLOWED_FILE" "$BLOCKED_FILE" "$REJECTED_OVERRIDES_FILE"
+
+ALLOWED_COUNT=0
+REJECTED_OVERRIDE_COUNT=0
+
+while IFS='§' read -r f_sev f_id f_file f_line f_msg f_content; do
+  if check_override "$f_id" "$f_sev"; then
+    printf '%s§%s§%s§%s§%s§%s\n' "$f_sev" "$f_id" "$f_file" "$f_line" "$f_msg" "$f_content" >> "$ALLOWED_FILE"
+    ALLOWED_COUNT=$((ALLOWED_COUNT + 1))
+  else
+    # Check if override exists but was rejected (no justification for CRITICAL/HIGH)
+    if grep -q "^${f_id}	" "$OVERRIDES_FILE" 2>/dev/null; then
+      printf '%s§%s§%s§%s§%s§%s\n' "$f_sev" "$f_id" "$f_file" "$f_line" "$f_msg" "$f_content" >> "$REJECTED_OVERRIDES_FILE"
+      REJECTED_OVERRIDE_COUNT=$((REJECTED_OVERRIDE_COUNT + 1))
+    fi
+    printf '%s§%s§%s§%s§%s§%s\n' "$f_sev" "$f_id" "$f_file" "$f_line" "$f_msg" "$f_content" >> "$BLOCKED_FILE"
+  fi
+done < "$FINDINGS_FILE"
+
 # ─── Output results ─────────────────────────────────────────────────────────
 
 TOTAL_FINDINGS=$((CRITICAL_COUNT + HIGH_COUNT + WARNING_COUNT + INFO_COUNT))
 
 if [[ $TOTAL_FINDINGS -eq 0 ]]; then
   echo "✓ Nenhuma operação crítica detectada"
+  # Update PR comment if one exists (to show clean state on re-run)
+  if [[ -n "$PR_NUMBER" ]] && [[ -n "$REPO" ]] && command -v gh >/dev/null 2>&1; then
+    local_marker="⚠ Critical Gate — Findings"
+    local_existing_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --jq ".[] | select(.body | contains(\"$local_marker\")) | .id" 2>/dev/null | head -1)
+    if [[ -n "$local_existing_id" ]]; then
+      gh api "repos/${REPO}/issues/comments/${local_existing_id}" \
+        --method PATCH \
+        --field body="## ✅ Critical Gate — Clean
+
+Nenhuma operação crítica detectada.
+
+---
+🤖 *Generated by [Chama Critical Gate](https://github.com/rafaelportugal/chama)*" >/dev/null 2>&1 || true
+    fi
+  fi
   exit 0
 fi
 
@@ -416,12 +540,28 @@ echo "│  ⚠  CRITICAL GATE — Operações detectadas                    │"
 echo "├──────────────────────────────────────────────────────────────┤"
 printf "│  CRITICAL: %-3s  HIGH: %-3s  WARNING: %-3s  INFO: %-3s         │\n" \
   "$CRITICAL_COUNT" "$HIGH_COUNT" "$WARNING_COUNT" "$INFO_COUNT"
+if [[ $ALLOWED_COUNT -gt 0 ]]; then
+  printf "│  ALLOWED (override): %-3s                                     │\n" "$ALLOWED_COUNT"
+fi
+if [[ $REJECTED_OVERRIDE_COUNT -gt 0 ]]; then
+  printf "│  REJECTED (no justification): %-3s                            │\n" "$REJECTED_OVERRIDE_COUNT"
+fi
 echo "├──────────────────────────────────────────────────────────────┤"
 
 # Print findings sorted by severity
 for sev in CRITICAL HIGH WARNING INFO; do
   while IFS='§' read -r f_sev f_id f_file f_line f_msg f_content; do
     if [[ "$f_sev" == "$sev" ]]; then
+      local_allowed=""
+      if grep -q "^${f_sev}§${f_id}§${f_file}§${f_line}§" "$ALLOWED_FILE" 2>/dev/null; then
+        local_allowed=" ✅ ALLOWED"
+      fi
+
+      local_rejected=""
+      if grep -q "^${f_sev}§${f_id}§${f_file}§${f_line}§" "$REJECTED_OVERRIDES_FILE" 2>/dev/null; then
+        local_rejected=" ⛔ OVERRIDE REJECTED"
+      fi
+
       case "$f_sev" in
         CRITICAL) badge="🔴 CRITICAL" ;;
         HIGH)     badge="🟠 HIGH    " ;;
@@ -430,7 +570,10 @@ for sev in CRITICAL HIGH WARNING INFO; do
       esac
 
       echo "│                                                              │"
-      printf "│  %s [%s]%*s│\n" "$badge" "$f_id" $((42 - ${#f_id})) ""
+      local badge_line="${badge} [${f_id}]${local_allowed}${local_rejected}"
+      local pad=$((60 - ${#badge_line}))
+      [[ $pad -lt 0 ]] && pad=0
+      printf "│  %s%*s│\n" "$badge_line" "$pad" ""
 
       local_ref="${f_file}:${f_line}"
       if [[ ${#local_ref} -gt 56 ]]; then
@@ -456,33 +599,161 @@ echo "└───────────────────────�
 
 echo ""
 echo "Total: $TOTAL_FINDINGS finding(s)"
+if [[ $ALLOWED_COUNT -gt 0 ]]; then
+  echo "  Allowed (override): $ALLOWED_COUNT"
+fi
+if [[ $REJECTED_OVERRIDE_COUNT -gt 0 ]]; then
+  echo "  Rejected overrides (missing justification): $REJECTED_OVERRIDE_COUNT"
+fi
 
-# Check if any blocking severity found
-HAS_BLOCKING=false
-while IFS='§' read -r f_sev _rest; do
-  for block_sev in $SEVERITY_BLOCK_LIST; do
-    if [[ "$f_sev" == "$block_sev" ]]; then
-      HAS_BLOCKING=true
-      break 2
+# ─── Post PR comment ────────────────────────────────────────────────────────
+
+post_pr_comment() {
+  if [[ -z "$PR_NUMBER" ]] || [[ -z "$REPO" ]]; then
+    return 0
+  fi
+
+  if ! command -v gh >/dev/null 2>&1; then
+    echo "WARNING: gh CLI not available — cannot post PR comment" >&2
+    return 0
+  fi
+
+  local comment_body=""
+  comment_body+="## ⚠ Critical Gate — Findings\n\n"
+  comment_body+="| Severity | Rule | File | Line | Message | Status |\n"
+  comment_body+="|----------|------|------|------|---------|--------|\n"
+
+  while IFS='§' read -r f_sev f_id f_file f_line f_msg f_content; do
+    local status_icon="❌ Blocked"
+    if grep -q "^${f_sev}§${f_id}§${f_file}§${f_line}§" "$ALLOWED_FILE" 2>/dev/null; then
+      status_icon="✅ Allowed"
+    elif grep -q "^${f_sev}§${f_id}§${f_file}§${f_line}§" "$REJECTED_OVERRIDES_FILE" 2>/dev/null; then
+      status_icon="⛔ Override Rejected"
     fi
-  done
-done < "$FINDINGS_FILE"
+
+    local sev_icon
+    case "$f_sev" in
+      CRITICAL) sev_icon="🔴 CRITICAL" ;;
+      HIGH)     sev_icon="🟠 HIGH" ;;
+      WARNING)  sev_icon="🟡 WARNING" ;;
+      INFO)     sev_icon="🔵 INFO" ;;
+      *)        sev_icon="$f_sev" ;;
+    esac
+
+    # Truncate message for table
+    local short_msg="$f_msg"
+    if [[ ${#short_msg} -gt 60 ]]; then
+      short_msg="${short_msg:0:57}..."
+    fi
+
+    comment_body+="| $sev_icon | \`$f_id\` | \`$f_file\` | $f_line | $short_msg | $status_icon |\n"
+  done < "$FINDINGS_FILE"
+
+  comment_body+="\n**Summary:** $TOTAL_FINDINGS finding(s)"
+  if [[ $ALLOWED_COUNT -gt 0 ]]; then
+    comment_body+=", $ALLOWED_COUNT allowed (override)"
+  fi
+  if [[ $REJECTED_OVERRIDE_COUNT -gt 0 ]]; then
+    comment_body+=", $REJECTED_OVERRIDE_COUNT override(s) rejected"
+  fi
+  comment_body+="\n\n"
+
+  # Add override instructions for blocked findings
+  local blocked_count
+  blocked_count=$(wc -l < "$BLOCKED_FILE" | tr -d ' ')
+  if [[ "$blocked_count" -gt 0 ]]; then
+    comment_body+="### How to override\n\n"
+    comment_body+="Add to the PR body:\n"
+    comment_body+="\`\`\`html\n"
+    # List unique blocked rule IDs
+    local seen_ids=""
+    while IFS='§' read -r f_sev f_id _rest; do
+      if [[ "$seen_ids" != *"|${f_id}|"* ]]; then
+        comment_body+="<!-- chama:allow ${f_id}: <justification required for CRITICAL/HIGH> -->\n"
+        seen_ids="${seen_ids}|${f_id}|"
+      fi
+    done < "$BLOCKED_FILE"
+    comment_body+="\`\`\`\n\n"
+    comment_body+="> **Note:** CRITICAL and HIGH findings require a non-empty justification. WARNING/INFO can be overridden without justification.\n"
+  fi
+
+  comment_body+="\n---\n🤖 *Generated by [Chama Critical Gate](https://github.com/rafaelportugal/chama)*"
+
+  # Format the comment body
+  local formatted_body
+  formatted_body=$(printf '%b' "$comment_body")
+
+  # Look for existing comment to update (by marker)
+  local comment_marker="⚠ Critical Gate — Findings"
+  local existing_comment_id
+  existing_comment_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --jq ".[] | select(.body | contains(\"$comment_marker\")) | .id" 2>/dev/null | head -1)
+
+  if [[ -n "$existing_comment_id" ]]; then
+    # Update existing comment
+    gh api "repos/${REPO}/issues/comments/${existing_comment_id}" \
+      --method PATCH \
+      --field body="$formatted_body" >/dev/null 2>&1 || \
+      echo "WARNING: Failed to update PR comment" >&2
+  else
+    # Create new comment
+    gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$formatted_body" >/dev/null 2>&1 || \
+      echo "WARNING: Failed to post PR comment" >&2
+  fi
+}
+
+post_pr_comment
+
+# ─── Determine exit code ────────────────────────────────────────────────────
+
+# Check if any BLOCKED findings (not allowed) have blocking severity
+HAS_BLOCKING=false
+if [[ -s "$BLOCKED_FILE" ]]; then
+  while IFS='§' read -r f_sev _rest; do
+    for block_sev in $SEVERITY_BLOCK_LIST; do
+      if [[ "$f_sev" == "$block_sev" ]]; then
+        HAS_BLOCKING=true
+        break 2
+      fi
+    done
+  done < "$BLOCKED_FILE"
+fi
 
 if [[ "$HAS_BLOCKING" == "true" ]]; then
   echo ""
   echo "❌ Gate BLOQUEADO — findings CRITICAL/HIGH requerem revisão."
-  echo ""
-  echo "Corrija os problemas identificados antes de prosseguir."
+  if [[ -n "$PR_NUMBER" ]]; then
+    echo ""
+    echo "Adicione overrides no body do PR para permitir findings específicos."
+    echo "Formato: <!-- chama:allow RULE_ID: justificativa -->"
+  else
+    echo ""
+    echo "Corrija os problemas identificados antes de prosseguir."
+  fi
   exit 1
 fi
 
-if [[ $WARNING_COUNT -gt 0 ]]; then
+# Check for warnings (only non-allowed ones)
+NON_ALLOWED_WARNING=false
+if [[ -s "$BLOCKED_FILE" ]]; then
+  while IFS='§' read -r f_sev _rest; do
+    if [[ "$f_sev" == "WARNING" ]]; then
+      NON_ALLOWED_WARNING=true
+      break
+    fi
+  done < "$BLOCKED_FILE"
+fi
+
+if [[ "$NON_ALLOWED_WARNING" == "true" ]]; then
   echo ""
   echo "⚠ Warnings detectados — revise antes de continuar."
   exit 2
 fi
 
-# Only INFO findings
+# Only INFO findings or all findings were allowed
 echo ""
-echo "ℹ Apenas findings informativos — nenhuma ação necessária."
+if [[ $ALLOWED_COUNT -gt 0 && $ALLOWED_COUNT -eq $TOTAL_FINDINGS ]]; then
+  echo "✓ Todos os findings foram permitidos via override."
+else
+  echo "ℹ Apenas findings informativos — nenhuma ação necessária."
+fi
 exit 0

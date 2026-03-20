@@ -35,4 +35,27 @@ personas:
 #   - "docs/domain/"
 #   - "specs/"
 
+critical_gates:
+  enabled: true
+  fail_mode: open                          # "open" (pass on error) or "closed" (fail on error)
+  severity_block:
+    - CRITICAL
+    - HIGH
+  override_pattern: "chama:allow"          # override pattern in PR body
+  scan_points:
+    - pre_commit
+    - pre_merge
+  ignore_files:                            # glob patterns to exclude from analysis
+    - "**/*.test.*"
+    - "**/fixtures/**"
+    - "**/__mocks__/**"
+  # custom_rules:                          # project-specific rules (override defaults by ID)
+  #   - id: "PROJ01"
+  #     severity: CRITICAL
+  #     scope: both                        # added | removed | both
+  #     file_patterns:
+  #       - "**/billing/**"
+  #     line_pattern: ".*"
+  #     message: "Any change in billing requires approval"
+
 business_segment: "{{BUSINESS_SEGMENT}}"
