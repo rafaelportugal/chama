@@ -219,44 +219,51 @@ load_rules() {
   done
 }
 
+# ─── Glob matching helper ────────────────────────────────────────────────────
+
+matches_glob() {
+  local file="$1" pat="$2"
+
+  if [[ "$pat" == "**/"* ]]; then
+    # **/*.ext or **/dir/** → suffix match
+    local suffix="${pat#\*\*/}"
+    case "$file" in *${suffix}) return 0 ;; esac
+  elif [[ "$pat" == *"/**" ]]; then
+    # dir/** → prefix/contains match
+    local prefix="${pat%/\*\*}"
+    case "$file" in ${prefix}/*|*/${prefix}/*) return 0 ;; esac
+  elif [[ "$pat" == "*/"*"/*" ]]; then
+    # */dir/* → path containing dir
+    local mid="${pat#\*/}"
+    mid="${mid%/\*}"
+    case "$file" in */${mid}/*|${mid}/*) return 0 ;; esac
+  elif [[ "$pat" == "*."* ]]; then
+    # *.ext → extension match
+    local ext="${pat#\*.}"
+    case "$file" in *.${ext}) return 0 ;; esac
+  else
+    case "$file" in ${pat}) return 0 ;; esac
+  fi
+
+  return 1
+}
+
 # ─── Check if file matches ignore patterns ──────────────────────────────────
 
 is_ignored() {
   local file="$1"
-
-  if [[ ${#IGNORE_PATTERNS[@]} -eq 0 ]]; then
-    return 1
-  fi
+  [[ ${#IGNORE_PATTERNS[@]} -eq 0 ]] && return 1
 
   for pattern in "${IGNORE_PATTERNS[@]}"; do
-    # **/*.ext → match any file ending with .ext
-    if [[ "$pattern" == "**/"* ]]; then
-      local suffix="${pattern#\*\*/}"
-      case "$file" in
-        *${suffix}) return 0 ;;
-      esac
-    # **/dir/** → match any file containing /dir/
-    elif [[ "$pattern" == *"/**" ]]; then
-      local prefix="${pattern%/\*\*}"
-      case "$file" in
-        ${prefix}/*) return 0 ;;
-        */${prefix}/*) return 0 ;;
-      esac
-    else
-      case "$file" in
-        ${pattern}) return 0 ;;
-      esac
-    fi
+    matches_glob "$file" "$pattern" && return 0
   done
-
   return 1
 }
 
 # ─── Check if file matches rule's file_patterns ─────────────────────────────
 
 file_matches_patterns() {
-  local file="$1"
-  local patterns="$2"
+  local file="$1" patterns="$2"
 
   local OLD_IFS="$IFS"
   IFS='|'
@@ -264,33 +271,8 @@ file_matches_patterns() {
   IFS="$OLD_IFS"
 
   for pat in "$@"; do
-    # **/*.ext → suffix match
-    if [[ "$pat" == "**/"* ]]; then
-      local suffix="${pat#\*\*/}"
-      case "$file" in
-        *${suffix}) return 0 ;;
-      esac
-    # */dir/* → match path containing dir
-    elif [[ "$pat" == "*/"*"/*" ]]; then
-      local mid="${pat#\*/}"
-      mid="${mid%/\*}"
-      case "$file" in
-        */${mid}/*) return 0 ;;
-        ${mid}/*) return 0 ;;
-      esac
-    # *.ext → extension match
-    elif [[ "$pat" == "*."* ]]; then
-      local ext="${pat#\*.}"
-      case "$file" in
-        *.${ext}) return 0 ;;
-      esac
-    else
-      case "$file" in
-        ${pat}) return 0 ;;
-      esac
-    fi
+    matches_glob "$file" "$pat" && return 0
   done
-
   return 1
 }
 
