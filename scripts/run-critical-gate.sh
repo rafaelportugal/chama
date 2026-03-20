@@ -182,16 +182,17 @@ check_override() {
     return 1
   fi
 
-  local justification
-  justification=$(grep -m1 "^${rule_id}	" "$OVERRIDES_FILE" | cut -f2-)
+  local line
+  line=$(grep -m1 "^${rule_id}	" "$OVERRIDES_FILE" || true)
 
-  if [[ -z "$justification" ]] && ! grep -q "^${rule_id}	" "$OVERRIDES_FILE"; then
-    # No override for this rule
+  if [[ -z "$line" ]]; then
     return 1
   fi
 
   # CRITICAL and HIGH require non-empty justification
   if [[ "$severity" == "CRITICAL" || "$severity" == "HIGH" ]]; then
+    local justification
+    justification=$(echo "$line" | cut -f2-)
     if [[ -z "$justification" ]]; then
       return 1  # Override rejected — no justification
     fi
