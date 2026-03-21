@@ -3,14 +3,33 @@ set -euo pipefail
 
 # ─── Bump Version ────────────────────────────────────────────────────────────
 # Updates the version field in all files listed in .chama.yml versioning.files.
-# Usage: scripts/bump-version.sh <new-version>
+# Optionally prepends an entry to CHANGELOG.md.
+#
+# Usage: scripts/bump-version.sh <new-version> [--changelog "message"]
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─── Parse arguments ─────────────────────────────────────────────────────────
+
 NEW_VERSION="${1:-}"
+CHANGELOG_MSG=""
+
+shift || true
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --changelog)
+      CHANGELOG_MSG="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+  esac
+done
 
 if [[ -z "$NEW_VERSION" ]]; then
-  echo "Usage: $0 <new-version>" >&2
-  echo "Example: $0 1.3.0-draft.0" >&2
+  echo "Usage: $0 <new-version> [--changelog \"message\"]" >&2
+  echo "Example: $0 1.6.0 --changelog \"### Added\n- New feature\"" >&2
   exit 1
 fi
 
@@ -77,12 +96,34 @@ for i in $(seq 0 $((FILE_COUNT - 1))); do
   CHANGED=true
 done
 
+# ─── Update CHANGELOG.md ────────────────────────────────────────────────────
+
+if [[ -n "$CHANGELOG_MSG" ]] && [[ -f "CHANGELOG.md" ]]; then
+  TODAY=$(date +%Y-%m-%d)
+  TMP_FILE=$(mktemp)
+  # Keep the "# Changelog" header
+  head -1 CHANGELOG.md > "$TMP_FILE"
+  # Insert new entry
+  printf '\n## [%s] - %s\n\n%s\n' "$NEW_VERSION" "$TODAY" "$CHANGELOG_MSG" >> "$TMP_FILE"
+  # Append rest of file (skip first line)
+  tail -n +2 CHANGELOG.md >> "$TMP_FILE"
+  mv "$TMP_FILE" CHANGELOG.md
+  echo "  Updated CHANGELOG.md with entry for $NEW_VERSION"
+  CHANGED=true
+fi
+
+# ─── Commit ──────────────────────────────────────────────────────────────────
+
 if [[ "$CHANGED" == "true" ]]; then
-  # Stage and commit only the versioned files
+  # Stage versioned files
   for i in $(seq 0 $((FILE_COUNT - 1))); do
     FILE_PATH=$(yq ".versioning.files[$i].path" .chama.yml)
     git add "$FILE_PATH"
   done
+  # Stage changelog if updated
+  if [[ -n "$CHANGELOG_MSG" ]] && [[ -f "CHANGELOG.md" ]]; then
+    git add CHANGELOG.md
+  fi
   git commit -m "chore: bump version to $NEW_VERSION"
   echo "Committed: chore: bump version to $NEW_VERSION"
 else
