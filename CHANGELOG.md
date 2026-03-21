@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.5.1] - 2026-03-21
+
+### Added
+- Motor de Critical Gate com parser de diff, classificador de severidade (CRITICAL/HIGH/WARNING/INFO) e catálogo de ~40 regras padrão em 6 domínios (Database, Security, Infrastructure, Kubernetes, Config, Data)
+- Skill `/chama:gate-check` para análise standalone no working tree ou commit específico (`--commit <ID>`)
+- Integração do Critical Gate nos fluxos existentes: pré-commit em `/chama:code`, pré-merge em `/chama:review-loop`, e pós-simplificação no workflow de simplify
+- Sistema de override por PR via `<!-- chama:allow RULE_ID: justificação -->` no body do PR, com exigência de justificativa para severidades CRITICAL/HIGH
+- Comentário automático no PR com tabela de findings do Critical Gate, com atualização in-place em re-execuções
+- Seção `critical_gates` no template `.chama.yml` com configuração de regras customizadas e `override_pattern`
+- Geração de changelog via LLM (`claude --print`) no comando `make bump-version`, com fallback para lista de commits quando CLI indisponível
+- Flag `--changelog` no `bump-version.sh` para incluir entrada no CHANGELOG.md de forma idempotente
+- Opção de versão customizada no bump para migração de draft para versão estável
+- Documentação da função shell `chama-compose` no README
+
+### Changed
+- Seção de versionamento do CLAUDE.md simplificada: removidas versões draft e restrição de "apenas um Spec por vez"
+- Lógica de coleta de commits no bump ancorada na última release estável, ignorando bumps de draft
+
+### Fixed
+- Compatibilidade de regex entre GNU e BSD no Critical Gate (substituição de `(?i)` por `grep -i`)
+- Expansão de glob corrigida no matcher de arquivos (`set -f`) e suporte a padrões com prefixo misto como `docker-compose*.yml`
+- Diff three-dot (`main...HEAD`) no modo pre-merge para isolar delta da branch
+- Rastreamento correto de números de linha em remoções no parser de diff
+- Precedência de operadores no `yq_prefix` com `// []`
+- Validação de argumento `--changelog` não-vazio e falha quando CHANGELOG.md ausente
+
 ## [1.4.0] - 2026-03-19
 
 ### Added
