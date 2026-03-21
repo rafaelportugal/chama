@@ -90,18 +90,25 @@ Commits:
 $COMMITS"
 fi
 
+fallback_changelog() {
+  printf '%s' "$COMMITS" | sed 's/^[a-f0-9]* /- /'
+}
+
 if command -v claude >/dev/null 2>&1; then
   echo "Generating changelog via LLM..."
   echo ""
-  CHANGELOG=$(echo "$LLM_PROMPT" | claude --print 2>/dev/null || true)
+  LLM_ERR=$(mktemp)
+  CHANGELOG=$(printf '%s' "$LLM_PROMPT" | claude --print 2>"$LLM_ERR" || true)
 
   if [[ -z "$CHANGELOG" ]]; then
     echo "WARNING: LLM generation failed. Using commit list as fallback."
-    CHANGELOG=$(echo "$COMMITS" | sed 's/^[a-f0-9]* /- /')
+    [[ -s "$LLM_ERR" ]] && echo "  Reason: $(cat "$LLM_ERR")"
+    CHANGELOG=$(fallback_changelog)
   fi
+  rm -f "$LLM_ERR"
 else
   echo "claude CLI not found. Using commit list as fallback."
-  CHANGELOG=$(echo "$COMMITS" | sed 's/^[a-f0-9]* /- /')
+  CHANGELOG=$(fallback_changelog)
 fi
 
 echo "Generated changelog:"
