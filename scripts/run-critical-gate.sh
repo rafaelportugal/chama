@@ -222,11 +222,13 @@ get_diff() {
       ;;
     standalone)
       if [[ -n "$COMMIT_ID" ]]; then
-        if ! git cat-file -e "$COMMIT_ID" 2>/dev/null; then
+        if [[ "$COMMIT_ID" == "--full-scan" ]]; then
+          # Scan ALL tracked files (diff against empty tree)
+          git diff "$(git hash-object -t tree /dev/null)" HEAD -U0
+        elif ! git cat-file -e "$COMMIT_ID" 2>/dev/null; then
           echo "ERROR: Invalid commit ID: $COMMIT_ID" >&2
           return 1
-        fi
-        if git rev-parse --verify "${COMMIT_ID}~1" >/dev/null 2>&1; then
+        elif git rev-parse --verify "${COMMIT_ID}~1" >/dev/null 2>&1; then
           git diff "${COMMIT_ID}~1" "$COMMIT_ID" -U0
         else
           # Initial commit — diff against empty tree

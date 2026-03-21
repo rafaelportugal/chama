@@ -223,7 +223,7 @@ fi
 
 ### 1.5 Code Quality Analysis
 
-Run gate-check in standalone mode (informational only):
+Run gate-check in **full-scan mode** to analyze all tracked files in the repository (not just the diff):
 
 ```bash
 # Standard gate-check discovery (consistent with code, review-loop, gate-check skills)
@@ -235,7 +235,10 @@ else
   GATE_SCRIPT="scripts/run-critical-gate.sh"
 fi
 
-bash "$GATE_SCRIPT" --mode standalone 2>/dev/null || echo "INFO: gate-check not available for analysis"
+bash "$GATE_SCRIPT" --mode standalone --commit --full-scan 2>/dev/null || echo "INFO: gate-check not available for analysis"
+```
+
+This scans the entire codebase against the Chama critical gate rules, giving a complete baseline of findings for the adoption report.
 ```
 
 ### 1.6 Branch Strategy Detection
