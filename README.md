@@ -42,6 +42,7 @@ The name "chama" combines fire with the act of "calling/invoking" — perfect fo
 | Command | Description |
 |---------|-------------|
 | `/chama:new-project` | Guided bootstrap — idea -> synthesis -> local foundation (`.chama.yml`, `CLAUDE.md`, `README.md`, `LICENSE`, `docs/`) |
+| `/chama:adopt` | Adopt existing repo — analyze stack, plan transformation, generate tests/docs/gates |
 | `/chama:init` | Project onboarding — creates `.chama.yml`, GitHub labels, project board |
 | `/chama:ideas` | Ideas studio — brainstorm with Product Lead + Designer personas |
 | `/chama:architect` | Idea -> Spec + phases (all as GitHub Issues) |
@@ -283,6 +284,7 @@ chama/
 │   └── marketplace.json         # Marketplace definition
 ├── skills/                      # Slash commands (interactive)
 │   ├── new-project/SKILL.md     # Guided project bootstrap
+│   ├── adopt/SKILL.md           # Adopt existing repo
 │   ├── init/SKILL.md            # Project onboarding
 │   ├── ideas/SKILL.md           # Ideas studio
 │   ├── architect/SKILL.md       # Idea -> Spec + phases
