@@ -683,4 +683,368 @@ After the PR is created:
 3. Announce: "Adoption Phase 1 (Config & Docs) concluída. PR aberto para chama-adopt."
 4. Show next step: "Rode `/chama:review-loop <pr-number>` para revisar e mergear este PR. Depois, rode `/chama:adopt` novamente para executar as próximas phases (Test Infrastructure, Minimum Tests, Quality Gates)."
 
-**STOP here.** The remaining adoption phases (Test Infrastructure, Minimum Tests, Quality Gates & Hardening) will be added to this skill in a future update.
+---
+
+## Phase 3: Test Infrastructure + Minimum Tests + Quality Gates + Finalization
+
+### 3.1 Check if phases should be skipped
+
+Before executing, evaluate what the Discovery already found:
+
+```bash
+# Skip test infra if framework already configured
+if [ -n "$TEST_FRAMEWORK" ] && [ "$TEST_FRAMEWORK" != "none" ]; then
+  echo "Test framework already configured: $TEST_FRAMEWORK — skipping Phase 2 (Test Infrastructure)"
+  SKIP_TEST_INFRA=true
+fi
+
+# Skip minimum tests if coverage ≥10%
+if [ "$TEST_FILES" -gt 0 ] 2>/dev/null; then
+  echo "Test files found: $TEST_FILES — evaluating if minimum coverage is met"
+  # If existing coverage reports show ≥10%, skip
+fi
+```
+
+### 3.2 Adaptation Phase 2: Test Infrastructure
+
+**Skip if test framework already exists.**
+
+Create a new phase branch:
+
+```bash
+git checkout chama-adopt
+git pull origin chama-adopt
+git checkout -b chama-adopt-phase2
+```
+
+Install and configure test framework based on the detected stack:
+
+**Golden Rule reminder:** Only install test dependencies and create test configuration files. Do NOT modify application code.
+
+| Stack | Test Framework | Install | Config |
+|---|---|---|---|
+| Node | Jest | `npm install --save-dev jest @types/jest ts-jest` | Create `jest.config.ts` |
+| Node | Vitest | `npm install --save-dev vitest` | Create `vitest.config.ts` |
+| Node (frontend) | Playwright | `npm install --save-dev @playwright/test && npx playwright install` | Create `playwright.config.ts` |
+| Python | pytest | `pip install pytest pytest-cov` (or add to requirements-dev.txt) | Create `pytest.ini` or `pyproject.toml [tool.pytest]` |
+| Go | go test | Built-in — no installation needed | — |
+| C# | xUnit | `dotnet add <test-project> package xunit xunit.runner.visualstudio` | Create test project if needed |
+| Rust | cargo test | Built-in — no installation needed | — |
+| Java | JUnit 5 | Already included via Spring Boot Starter Test | Verify `src/test/` exists |
+
+After installation:
+- Add test scripts to the project (e.g., `"test": "jest"` in package.json)
+- Verify the test runner works: run a basic sanity test
+
+Commit and PR:
+
+```bash
+# Stage only test config and dependency files (Golden Rule: never stage src/)
+for f in jest.config.* vitest.config.* playwright.config.* pytest.ini pyproject.toml setup.cfg \
+         package.json package-lock.json requirements-dev.txt Makefile .gitignore; do
+  [ -e "$f" ] && git add "$f"
+done
+[ -d "tests/" ] && git add tests/
+[ -d "e2e/" ] && git add e2e/
+[ -d "__tests__/" ] && git add __tests__/
+git commit -m "chore: adopt phase 2 — test infrastructure"
+git push -u origin chama-adopt-phase2
+
+gh pr create \
+  --base chama-adopt \
+  --title "adopt: Phase 2 — Test Infrastructure" \
+  --body "## Adoption Phase 2: Test Infrastructure
+
+Part of the adoption plan: #<adopt-issue-number>
+
+### Installed/Configured
+- Test framework: <framework>
+- E2E framework: <if applicable>
+- Test scripts: <commands added>"
+```
+
+Update adopt-report:
+
+```markdown
+### Phase 2: Test Infrastructure
+- Framework: <installed framework>
+- E2E: <if installed>
+- Config files: <list>
+```
+
+### 3.3 Adaptation Phase 3: Minimum Tests
+
+**Skip if existing coverage ≥10%.**
+
+**Target: ≥10% coverage per project/package.** This is the minimum baseline — subsequent features via `/chama:code` will naturally increase coverage.
+
+Create phase branch:
+
+```bash
+git checkout chama-adopt
+git pull origin chama-adopt
+git checkout -b chama-adopt-phase3
+```
+
+#### Test creation strategy
+
+Generate tests by priority layer. **Golden Rule: do NOT modify application source code.** Test file placement follows stack conventions:
+- **Node/Python/C#**: test files go in dedicated test directories (`tests/`, `__tests__/`, `*.Tests/`)
+- **Go**: `*_test.go` files go next to the source files they test (Go convention)
+- **Rust**: `#[test]` modules are inline (Rust convention) or in `tests/` directory
+- **Java**: test files go in `src/test/java/` (Maven/Gradle convention)
+
+**1. Unit tests (highest priority):**
+- Identify pure functions, utilities, validators, helpers in the codebase
+- Create unit tests for the most critical ones
+- Target: functions with business logic, not trivial getters/setters
+
+**2. Integration tests:**
+- Identify API endpoints, database queries, service interactions
+- Create integration tests for the most critical routes/operations
+- For APIs: test main CRUD operations with expected responses
+- Use mocks/fixtures in the test directory (never modify src/)
+
+**3. E2E tests (if frontend exists):**
+- Identify the main user flows (login, dashboard, primary action)
+- Create Playwright/Cypress tests for 1-3 critical flows
+- E2E tests go in `e2e/` or `tests/e2e/` directory
+
+#### Per-stack test patterns
+
+| Stack | Unit test location | Integration test location | E2E location |
+|---|---|---|---|
+| Node | `__tests__/` or `*.test.ts` next to source | `tests/integration/` | `e2e/` or `tests/e2e/` |
+| Python | `tests/unit/` or `test_*.py` | `tests/integration/` | `tests/e2e/` |
+| Go | `*_test.go` next to source | `*_test.go` with build tags | — |
+| C# | `*.Tests/` project | `*.IntegrationTests/` project | — |
+| Rust | `#[test]` inline or `tests/` | `tests/` | — |
+| Java | `src/test/java/` | `src/test/java/` with `@SpringBootTest` | — |
+
+#### Monorepo handling
+
+For monorepos, process each component separately:
+- Each component must reach ≥10% coverage individually
+- Run tests per component: `cd <component> && <test-command>`
+- Report coverage per component in adopt-report
+
+#### Validation
+
+After creating tests, verify **unit tests** pass (skip integration/E2E which may need external services):
+
+```bash
+# Run only unit tests per stack (skip integration/E2E to avoid infra dependencies)
+case "$STACK" in
+  node) npm test -- --testPathPattern="unit|__tests__" 2>/dev/null || npm test ;;
+  python) pytest -q -m "not integration and not e2e" 2>/dev/null || pytest -q ;;
+  go) go test -short ./... ;;
+  dotnet) dotnet test --filter "Category!=Integration" 2>/dev/null || dotnet test ;;
+  rust) cargo test --lib ;;
+  java) ./mvnw test -Dgroups="!integration" 2>/dev/null || ./mvnw test ;;
+esac
+```
+
+If tests fail: fix the test (not the application code). If a test cannot pass without modifying src/, remove it and note in the adopt-report as an item for the Improvement Backlog. If a test fails due to missing infrastructure (database, API), tag it appropriately and exclude from the default run.
+
+Commit and PR:
+
+```bash
+# Stage only test files (Golden Rule: never stage src/ application code)
+git add tests/ e2e/ __tests__/ 2>/dev/null || true
+# For Go: stage *_test.go files
+find . -name "*_test.go" -not -path "*/vendor/*" -exec git add {} \; 2>/dev/null || true
+# For Rust: stage tests/ directory
+[ -d "tests/" ] && git add tests/
+# For Java: stage src/test/
+[ -d "src/test/" ] && git add src/test/
+git commit -m "chore: adopt phase 3 — minimum tests"
+git push -u origin chama-adopt-phase3
+
+gh pr create \
+  --base chama-adopt \
+  --title "adopt: Phase 3 — Minimum Tests (≥10% coverage)" \
+  --body "## Adoption Phase 3: Minimum Tests
+
+Part of the adoption plan: #<adopt-issue-number>
+
+### Tests Created
+- Unit: <count>
+- Integration: <count>
+- E2E: <count>
+- Estimated coverage: <percentage>"
+```
+
+Update adopt-report:
+
+```markdown
+### Phase 3: Minimum Tests
+- Unit tests: <count> files
+- Integration tests: <count> files
+- E2E tests: <count> files
+- Coverage: <before>% → <after>%
+```
+
+### 3.4 Adaptation Phase 4: Quality Gates & Hardening
+
+Create phase branch:
+
+```bash
+git checkout chama-adopt
+git pull origin chama-adopt
+git checkout -b chama-adopt-phase4
+```
+
+#### 3.4.1 Run gate-check
+
+```bash
+# Standard gate-check discovery
+if [ -d "chama/scripts" ]; then
+  GATE_SCRIPT="chama/scripts/run-critical-gate.sh"
+elif [ -d "${HOME}/.claude/plugins/chama/scripts" ]; then
+  GATE_SCRIPT="${HOME}/.claude/plugins/chama/scripts/run-critical-gate.sh"
+else
+  GATE_SCRIPT="scripts/run-critical-gate.sh"
+fi
+
+bash "$GATE_SCRIPT" --mode standalone
+```
+
+If CRITICAL/HIGH findings exist:
+- Address only findings that can be resolved **without modifying application code** (e.g., config issues, exposed secrets in config files, missing security headers in test configs)
+- For findings that require src/ changes: add to Improvement Backlog in adopt-report
+- Do NOT modify application code to fix gate-check findings
+
+#### 3.4.2 Run simplify (analysis only)
+
+Run `/simplify` in analysis mode on the most complex modules. Report findings but do NOT apply changes to src/ — add recommendations to the Improvement Backlog.
+
+#### 3.4.3 Verify quality gates
+
+Verify that the quality gates configured in `.chama.yml` pass:
+
+```bash
+# Read and run quality gates
+COMPONENTS=$(yq '.tech_stack.components[].name' .chama.yml 2>/dev/null)
+for COMPONENT in $COMPONENTS; do
+  GATES=$(yq ".tech_stack.components[] | select(.name == \"$COMPONENT\") | .quality_gates[]" .chama.yml 2>/dev/null)
+  while IFS= read -r gate; do
+    echo "Running: $gate"
+    eval "$gate" || echo "WARN: Gate failed: $gate — adding to Improvement Backlog"
+  done <<< "$GATES"
+done
+```
+
+If gates fail: note in adopt-report Improvement Backlog. Do NOT modify src/ to make gates pass.
+
+Commit and PR:
+
+```bash
+# Stage only config/gate changes (Golden Rule: never stage src/)
+git add .chama.yml .chama/ 2>/dev/null || true
+git commit -m "chore: adopt phase 4 — quality gates & hardening"
+git push -u origin chama-adopt-phase4
+
+gh pr create \
+  --base chama-adopt \
+  --title "adopt: Phase 4 — Quality Gates & Hardening" \
+  --body "## Adoption Phase 4: Quality Gates & Hardening
+
+Part of the adoption plan: #<adopt-issue-number>
+
+### Gate-check Results
+- CRITICAL: <count resolved> / <count found>
+- Findings requiring src/ changes: added to Improvement Backlog
+
+### Quality Gates Status
+- <gate>: <pass/fail>"
+```
+
+Update adopt-report:
+
+```markdown
+### Phase 4: Quality Gates & Hardening
+- Gate-check: <findings summary>
+- Quality gates: <pass/fail per gate>
+- Findings deferred to Improvement Backlog: <count>
+```
+
+### 3.5 Finalization
+
+After all phases are completed:
+
+#### 3.5.1 Complete the Adoption Report
+
+Update `.chama/adopt-report.md` with final sections:
+
+```markdown
+## Executive Summary
+
+Adoption completed on <date>. The project <name> has been brought to Chama standard with:
+- Documentation: .chama.yml, CLAUDE.md, README.md, PROJECT_BRIEF.md
+- Test coverage: <before>% → <after>%
+- Quality gates: <status>
+- Plugins installed: <list>
+
+## Metrics
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Test coverage | <before>% | <after>% |
+| Test files | <before> | <after> |
+| Gate-check CRITICAL | <before> | <after> |
+| Docs completeness | <before>/6 | <after>/6 |
+
+## Improvement Backlog
+
+Recommended improvements that were out of scope for the adoption (require application code changes):
+
+- [ ] <improvement 1>
+- [ ] <improvement 2>
+- [ ] <improvement 3>
+```
+
+Commit the final report:
+
+```bash
+git checkout chama-adopt
+git pull origin chama-adopt
+git add .chama/adopt-report.md
+git commit -m "docs: complete adoption report with executive summary and metrics"
+git push origin chama-adopt
+```
+
+#### 3.5.2 Open final PR
+
+```bash
+BASE_BRANCH="<confirmed branch from Discovery>"
+
+gh pr create \
+  --base "$BASE_BRANCH" \
+  --head chama-adopt \
+  --title "adopt: Complete Chama adoption — <Project Name>" \
+  --body "## Chama Adoption Complete
+
+This PR brings the project to Chama SDLC standard.
+
+### What was done
+- **Config & Docs**: .chama.yml, CLAUDE.md, README.md, PROJECT_BRIEF.md, LICENSE
+- **Test Infrastructure**: <framework> configured
+- **Minimum Tests**: <count> tests, <coverage>% coverage
+- **Quality Gates**: <status>
+
+### Adoption Report
+See \`.chama/adopt-report.md\` for the full report including highlights, metrics, and improvement backlog.
+
+### Next Steps
+1. Run \`/chama:init\` to set up GitHub labels, board, and project number
+2. Run \`/chama:ideas\` to start using the Chama pipeline
+3. Address items in the Improvement Backlog as needed"
+```
+
+#### 3.5.3 Suggest next steps
+
+1. Show the final PR URL
+2. Show the adoption report summary
+3. Announce: "Adoption completa! PR final aberto para <base-branch>."
+4. Suggest: "Após mergear, rode `/chama:init` para configurar labels, board e project number no GitHub."
+5. Suggest: "Depois, rode `/chama:ideas` para começar a usar o pipeline Chama."
