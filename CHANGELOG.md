@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.7.0] - 2026-03-21
+
+### Added
+
+- **Novo comando `/chama:adopt`** para adoção de repositórios existentes ao padrão Chama, com fluxo completo de descoberta, planejamento e execução
+- **Descoberta automática de stack** com suporte a Node, Python, Go, C#, Rust e Java, incluindo detecção de frameworks e monorepos
+- **Avaliação de maturidade do projeto**: testes (framework, cobertura, E2E), documentação (README, CLAUDE.md, .chama.yml), CI/CD e qualidade de código
+- **Plano de transformação** gerado a partir do diagnóstico, persistido como GitHub Issue (label: `adopt`)
+- **Curadoria de ferramentas por stack** com recomendações de plugins, skills e quality gates (quick + full) para cada tecnologia detectada
+- **Fase de Config & Docs**: geração de `.chama.yml`, `CLAUDE.md`, `README.md`, `PROJECT_BRIEF.md`, `LICENSE` e `.gitignore`, com modo merge para artefatos existentes
+- **Fase de Infraestrutura de Testes**: instalação e configuração de frameworks de teste por stack (Jest, pytest, Playwright, xUnit, etc.) com lógica de skip se já existente
+- **Fase de Testes Mínimos** (≥10% cobertura): estratégia em três camadas (unit → integration → E2E) com suporte a monorepo por componente
+- **Fase de Quality Gates & Hardening**: gate-check com resolução CRITICAL e simplify em modo análise, sem alteração de código-fonte
+- **Relatório de adoção** completo em `.chama/adopt-report.md` com sumário executivo, métricas e Improvement Backlog
+- **Estratégia de branches**: `chama-adopt` como base + branches por fase, com PRs incrementais e PR final para main/develop
+
+### Changed
+
+- Atualizado `README.md` com documentação do comando `/chama:adopt` e estrutura do projeto
+
 ## [1.6.0] - 2026-03-21
 
 ### Added
