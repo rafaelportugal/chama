@@ -17,7 +17,12 @@ shift || true
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --changelog)
-      CHANGELOG_MSG="${2:-}"
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        echo "ERROR: --changelog requires a non-empty message argument." >&2
+        echo "Usage: $0 <new-version> [--changelog \"message\"]" >&2
+        exit 1
+      fi
+      CHANGELOG_MSG="$2"
       shift 2
       ;;
     *)
@@ -98,18 +103,26 @@ done
 
 # ─── Update CHANGELOG.md ────────────────────────────────────────────────────
 
-if [[ -n "$CHANGELOG_MSG" ]] && [[ -f "CHANGELOG.md" ]]; then
-  TODAY=$(date +%Y-%m-%d)
-  TMP_FILE=$(mktemp)
-  # Keep the "# Changelog" header
-  head -1 CHANGELOG.md > "$TMP_FILE"
-  # Insert new entry
-  printf '\n## [%s] - %s\n\n%s\n' "$NEW_VERSION" "$TODAY" "$CHANGELOG_MSG" >> "$TMP_FILE"
-  # Append rest of file (skip first line)
-  tail -n +2 CHANGELOG.md >> "$TMP_FILE"
-  mv "$TMP_FILE" CHANGELOG.md
-  echo "  Updated CHANGELOG.md with entry for $NEW_VERSION"
-  CHANGED=true
+if [[ -n "$CHANGELOG_MSG" ]]; then
+  if [[ ! -f "CHANGELOG.md" ]]; then
+    echo "ERROR: --changelog was provided but CHANGELOG.md does not exist." >&2
+    echo "Create a CHANGELOG.md with a '# Changelog' header before retrying." >&2
+    exit 1
+  fi
+
+  # Skip if entry already exists (idempotent)
+  if grep -q "^## \[$NEW_VERSION\] - " CHANGELOG.md; then
+    echo "  CHANGELOG.md already has entry for $NEW_VERSION, skipping."
+  else
+    TODAY=$(date +%Y-%m-%d)
+    TMP_FILE=$(mktemp)
+    head -1 CHANGELOG.md > "$TMP_FILE"
+    printf '\n## [%s] - %s\n\n%s\n' "$NEW_VERSION" "$TODAY" "$CHANGELOG_MSG" >> "$TMP_FILE"
+    tail -n +2 CHANGELOG.md >> "$TMP_FILE"
+    mv "$TMP_FILE" CHANGELOG.md
+    echo "  Updated CHANGELOG.md with entry for $NEW_VERSION"
+    CHANGED=true
+  fi
 fi
 
 # ─── Commit ──────────────────────────────────────────────────────────────────

@@ -45,7 +45,13 @@ echo ""
 
 # ─── Collect commits since last bump ────────────────────────────────────────
 
-LAST_BUMP_COMMIT=$(git log --first-parent --grep="chore: bump version" -1 --format="%H" 2>/dev/null || true)
+# Find last stable version bump (ignore draft bumps for migration)
+LAST_BUMP_COMMIT=$(git log --first-parent --grep="chore: bump version to [0-9]*\.[0-9]*\.[0-9]*$" --extended-regexp -1 --format="%H" 2>/dev/null || true)
+
+# Fallback: any bump commit if no stable found
+if [[ -z "$LAST_BUMP_COMMIT" ]]; then
+  LAST_BUMP_COMMIT=$(git log --first-parent --grep="chore: bump version" -1 --format="%H" 2>/dev/null || true)
+fi
 
 if [[ -n "$LAST_BUMP_COMMIT" ]]; then
   COMMITS=$(git log --oneline "${LAST_BUMP_COMMIT}..HEAD" 2>/dev/null || true)
@@ -135,13 +141,21 @@ echo "Bump type:"
 echo "  1) patch → $MAJOR.$MINOR.$((PATCH + 1))"
 echo "  2) minor → $MAJOR.$((MINOR + 1)).0"
 echo "  3) major → $((MAJOR + 1)).0.0"
+echo "  4) custom version"
 echo ""
-read -r -p "Choose [1/2/3]: " BUMP_CHOICE
+read -r -p "Choose [1/2/3/4]: " BUMP_CHOICE
 
 case "$BUMP_CHOICE" in
   1) NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))" ;;
   2) NEW_VERSION="$MAJOR.$((MINOR + 1)).0" ;;
   3) NEW_VERSION="$((MAJOR + 1)).0.0" ;;
+  4)
+    read -r -p "Enter version: " NEW_VERSION
+    if [[ ! "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "Invalid version format. Expected: X.Y.Z"
+      exit 1
+    fi
+    ;;
   *)
     echo "Invalid choice. Aborting."
     exit 1

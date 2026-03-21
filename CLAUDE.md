@@ -59,7 +59,7 @@ If the `claude` CLI is not available, falls back to a plain commit list.
 ### Script reference
 
 - `make bump-version` — interactive bump with LLM changelog (entry point)
-- `scripts/bump-version.sh <version> [--changelog "message"]` — low-level: updates version files from `.chama.yml`, optionally prepends CHANGELOG.md entry, creates commit. Idempotent.
+- `scripts/bump-version.sh <version> [--changelog "message"]` — low-level: updates version files from `.chama.yml`, optionally prepends CHANGELOG.md entry, creates commit. Idempotent (skips if version already matches and changelog entry already exists).
 
 ## When editing this plugin
 
