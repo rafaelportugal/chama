@@ -536,7 +536,7 @@ elif [ -d "chama/templates" ]; then
   CHAMA_TEMPLATES="chama/templates"
 elif [ -d "$HOME/.claude/plugins/chama/templates" ]; then
   CHAMA_TEMPLATES="$HOME/.claude/plugins/chama/templates"
-elif CACHE_HIT=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 4 -name "chama.yml.template" -printf '%h' 2>/dev/null | head -1) && [ -n "$CACHE_HIT" ]; then
+elif CACHE_HIT=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 4 -name "chama.yml.template" -printf '%h\n' 2>/dev/null | sort -V | tail -1) && [ -n "$CACHE_HIT" ]; then
   CHAMA_TEMPLATES="$CACHE_HIT"
 fi
 ```

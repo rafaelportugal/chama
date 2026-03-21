@@ -17,7 +17,7 @@ else
     CHAMA_PLUGIN_DIR="chama"
   elif [ -d "$HOME/.claude/plugins/chama/templates" ]; then
     CHAMA_PLUGIN_DIR="$HOME/.claude/plugins/chama"
-  elif CACHE_HIT=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 4 -name "spec.md.default" -printf '%h' 2>/dev/null | head -1) && [ -n "$CACHE_HIT" ]; then
+  elif CACHE_HIT=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 4 -name "spec.md.default" -printf '%h\n' 2>/dev/null | sort -V | tail -1) && [ -n "$CACHE_HIT" ]; then
     CHAMA_PLUGIN_DIR="${CACHE_HIT%/templates}"
   else
     echo "ERROR: Could not find chama plugin directory" >&2

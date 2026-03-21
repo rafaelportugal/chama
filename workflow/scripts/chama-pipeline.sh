@@ -21,7 +21,7 @@ elif [[ -d "$HOME/.claude/plugins/chama/workflow" ]]; then
   CHAMA_DIR="$HOME/.claude/plugins/chama"
 else
   # Search in Claude Code plugin cache (versioned path)
-  CHAMA_DIR=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 3 -name "chama-pipeline.sh" -printf '%h' 2>/dev/null | head -1)
+  CHAMA_DIR=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 3 -name "chama-pipeline.sh" -printf '%h\n' 2>/dev/null | sort -V | tail -1)
   if [[ -n "$CHAMA_DIR" ]]; then
     CHAMA_DIR="${CHAMA_DIR%/workflow/scripts}"
   else
