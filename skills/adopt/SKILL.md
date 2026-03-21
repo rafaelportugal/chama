@@ -739,7 +739,14 @@ After installation:
 Commit and PR:
 
 ```bash
-git add -A  # Only test config files, no src/ changes
+# Stage only test config and dependency files (Golden Rule: never stage src/)
+for f in jest.config.* vitest.config.* playwright.config.* pytest.ini pyproject.toml setup.cfg \
+         package.json package-lock.json requirements-dev.txt Makefile .gitignore; do
+  [ -e "$f" ] && git add "$f"
+done
+[ -d "tests/" ] && git add tests/
+[ -d "e2e/" ] && git add e2e/
+[ -d "__tests__/" ] && git add __tests__/
 git commit -m "chore: adopt phase 2 — test infrastructure"
 git push -u origin chama-adopt-phase2
 
@@ -781,7 +788,11 @@ git checkout -b chama-adopt-phase3
 
 #### Test creation strategy
 
-Generate tests by priority layer. **Golden Rule: all test files go in test directories, never in src/.**
+Generate tests by priority layer. **Golden Rule: do NOT modify application source code.** Test file placement follows stack conventions:
+- **Node/Python/C#**: test files go in dedicated test directories (`tests/`, `__tests__/`, `*.Tests/`)
+- **Go**: `*_test.go` files go next to the source files they test (Go convention)
+- **Rust**: `#[test]` modules are inline (Rust convention) or in `tests/` directory
+- **Java**: test files go in `src/test/java/` (Maven/Gradle convention)
 
 **1. Unit tests (highest priority):**
 - Identify pure functions, utilities, validators, helpers in the codebase
@@ -819,26 +830,33 @@ For monorepos, process each component separately:
 
 #### Validation
 
-After creating tests, verify they pass:
+After creating tests, verify **unit tests** pass (skip integration/E2E which may need external services):
 
 ```bash
-# Run tests per stack
+# Run only unit tests per stack (skip integration/E2E to avoid infra dependencies)
 case "$STACK" in
-  node) npm test ;;
-  python) pytest -q ;;
-  go) go test ./... ;;
-  dotnet) dotnet test ;;
-  rust) cargo test ;;
-  java) ./mvnw test ;;
+  node) npm test -- --testPathPattern="unit|__tests__" 2>/dev/null || npm test ;;
+  python) pytest -q -m "not integration and not e2e" 2>/dev/null || pytest -q ;;
+  go) go test -short ./... ;;
+  dotnet) dotnet test --filter "Category!=Integration" 2>/dev/null || dotnet test ;;
+  rust) cargo test --lib ;;
+  java) ./mvnw test -Dgroups="!integration" 2>/dev/null || ./mvnw test ;;
 esac
 ```
 
-If tests fail: fix the test (not the application code). If a test cannot pass without modifying src/, remove it and note in the adopt-report as an item for the Improvement Backlog.
+If tests fail: fix the test (not the application code). If a test cannot pass without modifying src/, remove it and note in the adopt-report as an item for the Improvement Backlog. If a test fails due to missing infrastructure (database, API), tag it appropriately and exclude from the default run.
 
 Commit and PR:
 
 ```bash
-git add -A  # Only test files
+# Stage only test files (Golden Rule: never stage src/ application code)
+git add tests/ e2e/ __tests__/ 2>/dev/null || true
+# For Go: stage *_test.go files
+find . -name "*_test.go" -not -path "*/vendor/*" -exec git add {} \; 2>/dev/null || true
+# For Rust: stage tests/ directory
+[ -d "tests/" ] && git add tests/
+# For Java: stage src/test/
+[ -d "src/test/" ] && git add src/test/
 git commit -m "chore: adopt phase 3 — minimum tests"
 git push -u origin chama-adopt-phase3
 
@@ -921,7 +939,8 @@ If gates fail: note in adopt-report Improvement Backlog. Do NOT modify src/ to m
 Commit and PR:
 
 ```bash
-git add -A
+# Stage only config/gate changes (Golden Rule: never stage src/)
+git add .chama.yml .chama/ 2>/dev/null || true
 git commit -m "chore: adopt phase 4 — quality gates & hardening"
 git push -u origin chama-adopt-phase4
 
