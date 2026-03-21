@@ -92,44 +92,45 @@ STACK=""
 FRAMEWORK=""
 
 # Detect primary stack (elif prevents polyglot override)
+# Note: each grep/framework detection uses || true to avoid exit code 1
 if [ -f "package.json" ]; then
   STACK="node"
-  DEPS=$(jq -r '(.dependencies // {}) + (.devDependencies // {}) | keys[]' package.json 2>/dev/null)
-  echo "$DEPS" | grep -qx "next" && FRAMEWORK="nextjs"
-  echo "$DEPS" | grep -qx "react" && [ -z "$FRAMEWORK" ] && FRAMEWORK="react"
-  echo "$DEPS" | grep -qx "express" && [ -z "$FRAMEWORK" ] && FRAMEWORK="express"
-  echo "$DEPS" | grep -qx "fastify" && [ -z "$FRAMEWORK" ] && FRAMEWORK="fastify"
-  echo "$DEPS" | grep -qx "@nestjs/core" && [ -z "$FRAMEWORK" ] && FRAMEWORK="nestjs"
+  DEPS=$(jq -r '(.dependencies // {}) + (.devDependencies // {}) | keys[]' package.json 2>/dev/null || true)
+  echo "$DEPS" | grep -qx "next" && FRAMEWORK="nextjs" || true
+  echo "$DEPS" | grep -qx "react" && [ -z "$FRAMEWORK" ] && FRAMEWORK="react" || true
+  echo "$DEPS" | grep -qx "express" && [ -z "$FRAMEWORK" ] && FRAMEWORK="express" || true
+  echo "$DEPS" | grep -qx "fastify" && [ -z "$FRAMEWORK" ] && FRAMEWORK="fastify" || true
+  echo "$DEPS" | grep -qx "@nestjs/core" && [ -z "$FRAMEWORK" ] && FRAMEWORK="nestjs" || true
 elif [ -f "go.mod" ]; then
   STACK="go"
-  grep -q "github.com/gin-gonic/gin" go.mod && FRAMEWORK="gin"
-  grep -q "github.com/gofiber/fiber" go.mod && FRAMEWORK="fiber"
-  grep -q "github.com/labstack/echo" go.mod && FRAMEWORK="echo"
-  grep -q "google.golang.org/grpc" go.mod && FRAMEWORK="grpc"
+  grep -q "github.com/gin-gonic/gin" go.mod && FRAMEWORK="gin" || true
+  grep -q "github.com/gofiber/fiber" go.mod && FRAMEWORK="fiber" || true
+  grep -q "github.com/labstack/echo" go.mod && FRAMEWORK="echo" || true
+  grep -q "google.golang.org/grpc" go.mod && FRAMEWORK="grpc" || true
 elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
   STACK="python"
   for pyfile in requirements.txt pyproject.toml; do
     if [ -f "$pyfile" ]; then
-      grep -qi "fastapi" "$pyfile" && FRAMEWORK="fastapi"
-      grep -qi "django" "$pyfile" && FRAMEWORK="django"
-      grep -qi "flask" "$pyfile" && FRAMEWORK="flask"
+      grep -qi "fastapi" "$pyfile" && FRAMEWORK="fastapi" || true
+      grep -qi "django" "$pyfile" && FRAMEWORK="django" || true
+      grep -qi "flask" "$pyfile" && FRAMEWORK="flask" || true
     fi
   done
 elif ls *.csproj *.sln 2>/dev/null | head -1 > /dev/null; then
   STACK="dotnet"
-  grep -qi "Microsoft.AspNetCore" *.csproj 2>/dev/null && FRAMEWORK="aspnet"
+  grep -qi "Microsoft.AspNetCore" *.csproj 2>/dev/null && FRAMEWORK="aspnet" || true
 elif [ -f "Cargo.toml" ]; then
   STACK="rust"
-  grep -q "axum" Cargo.toml && FRAMEWORK="axum"
-  grep -q "actix" Cargo.toml && FRAMEWORK="actix"
+  grep -q "axum" Cargo.toml && FRAMEWORK="axum" || true
+  grep -q "actix" Cargo.toml && FRAMEWORK="actix" || true
 elif [ -f "pom.xml" ] || [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
   STACK="java"
-  grep -qi "spring-boot" pom.xml 2>/dev/null && FRAMEWORK="spring-boot"
-  grep -qi "spring-boot" build.gradle 2>/dev/null && FRAMEWORK="spring-boot"
-  grep -qi "spring-boot" build.gradle.kts 2>/dev/null && FRAMEWORK="spring-boot"
+  grep -qi "spring-boot" pom.xml 2>/dev/null && FRAMEWORK="spring-boot" || true
+  grep -qi "spring-boot" build.gradle 2>/dev/null && FRAMEWORK="spring-boot" || true
+  grep -qi "spring-boot" build.gradle.kts 2>/dev/null && FRAMEWORK="spring-boot" || true
 fi
 
-echo "Stack: $STACK"
+echo "Stack: ${STACK:-unknown}"
 echo "Framework: ${FRAMEWORK:-generic}"
 ```
 
@@ -184,20 +185,20 @@ case "$STACK" in
     if [ -f "jest.config.js" ] || [ -f "jest.config.ts" ] || [ -f "jest.config.mjs" ]; then
       TEST_FRAMEWORK="jest"
     fi
-    echo "$DEPS" | grep -qx "jest" && TEST_FRAMEWORK="jest"
-    echo "$DEPS" | grep -qx "vitest" && TEST_FRAMEWORK="vitest"
-    echo "$DEPS" | grep -qx "mocha" && TEST_FRAMEWORK="mocha"
+    echo "$DEPS" | grep -qx "jest" && TEST_FRAMEWORK="jest" || true
+    echo "$DEPS" | grep -qx "vitest" && TEST_FRAMEWORK="vitest" || true
+    echo "$DEPS" | grep -qx "mocha" && TEST_FRAMEWORK="mocha" || true
     # E2E
-    echo "$DEPS" | grep -qx "@playwright/test" && HAS_E2E=true
-    echo "$DEPS" | grep -qx "cypress" && HAS_E2E=true
+    echo "$DEPS" | grep -qx "@playwright/test" && HAS_E2E=true || true
+    echo "$DEPS" | grep -qx "cypress" && HAS_E2E=true || true
     # Count test files (exclude node_modules, dist, build)
     TEST_FILES=$(find . -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/.git/*" \( -name "*.test.*" -o -name "*.spec.*" \) | grep -c . 2>/dev/null || echo 0)
     ;;
   python)
     # Check for pytest in any config file
-    [ -f "pytest.ini" ] && TEST_FRAMEWORK="pytest"
-    [ -f "setup.cfg" ] && grep -qi "pytest" setup.cfg 2>/dev/null && TEST_FRAMEWORK="pytest"
-    [ -f "pyproject.toml" ] && grep -qi "pytest" pyproject.toml 2>/dev/null && TEST_FRAMEWORK="pytest"
+    [ -f "pytest.ini" ] && TEST_FRAMEWORK="pytest" || true
+    [ -f "setup.cfg" ] && grep -qi "pytest" setup.cfg 2>/dev/null && TEST_FRAMEWORK="pytest" || true
+    [ -f "pyproject.toml" ] && grep -qi "pytest" pyproject.toml 2>/dev/null && TEST_FRAMEWORK="pytest" || true
     TEST_FILES=$(find . -not -path "*/.git/*" -not -path "*/__pycache__/*" -not -path "*/.venv/*" \( -name "test_*.py" -o -name "*_test.py" \) | grep -c . 2>/dev/null || echo 0)
     ;;
   go)
@@ -205,7 +206,7 @@ case "$STACK" in
     TEST_FILES=$(find . -not -path "*/.git/*" -not -path "*/vendor/*" -name "*_test.go" | grep -c . 2>/dev/null || echo 0)
     ;;
   dotnet)
-    ls *Tests*/*.csproj >/dev/null 2>&1 && TEST_FRAMEWORK="xunit-or-nunit"
+    ls *Tests*/*.csproj >/dev/null 2>&1 && TEST_FRAMEWORK="xunit-or-nunit" || true
     TEST_FILES=$(find . -not -path "*/.git/*" -not -path "*/bin/*" -not -path "*/obj/*" \( -name "*Tests.cs" -o -name "*Test.cs" \) | grep -c . 2>/dev/null || echo 0)
     ;;
   rust)
@@ -213,7 +214,7 @@ case "$STACK" in
     TEST_FILES=$(grep -rl "#\[test\]" --include="*.rs" --exclude-dir=target --exclude-dir=.git . 2>/dev/null | wc -l || echo 0)
     ;;
   java)
-    [ -d "src/test" ] && TEST_FRAMEWORK="junit"
+    [ -d "src/test" ] && TEST_FRAMEWORK="junit" || true
     TEST_FILES=$(find . -not -path "*/.git/*" -not -path "*/target/*" -path "*/test/*" \( -name "*Test.java" -o -name "*Tests.java" \) | grep -c . 2>/dev/null || echo 0)
     ;;
 esac
@@ -254,15 +255,16 @@ echo "=== Docs Assessment ==="
 
 ```bash
 echo "=== CI/CD Assessment ==="
-[ -d ".github/workflows" ] && echo "✓ GitHub Actions detected" && ls .github/workflows/
-[ -f ".gitlab-ci.yml" ] && echo "✓ GitLab CI detected"
-[ -f "Jenkinsfile" ] && echo "✓ Jenkins detected"
-[ -f ".circleci/config.yml" ] && echo "✓ CircleCI detected"
+[ -d ".github/workflows" ] && echo "✓ GitHub Actions detected" && ls .github/workflows/ || true
+[ -f ".gitlab-ci.yml" ] && echo "✓ GitLab CI detected" || true
+[ -f "Jenkinsfile" ] && echo "✓ Jenkins detected" || true
+[ -f ".circleci/config.yml" ] && echo "✓ CircleCI detected" || true
 
 # Check if tests run in CI
 if [ -d ".github/workflows" ]; then
   grep -rl "test" .github/workflows/ 2>/dev/null && echo "✓ Test step found in CI" || echo "⚠️ No test step in CI"
 fi
+true
 ```
 
 ### 1.5 Code Quality Analysis
