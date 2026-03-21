@@ -510,7 +510,7 @@ The issue body should contain:
 
 ### 1.12 Initialize Adoption Report
 
-Create `.chama/adopt-report.md` with Discovery results:
+Create `.chama/adopt-report.md` with Discovery results and **commit immediately** (required before any branch checkout):
 
 ```bash
 mkdir -p .chama
@@ -536,14 +536,21 @@ The report starts with:
 (to be filled incrementally as phases complete)
 ```
 
+**IMPORTANT:** Commit the report immediately after creating it. Uncommitted files will block `git checkout` to phase branches.
+
+```bash
+git add .chama/adopt-report.md
+git commit -m "chore: initialize adoption report"
+```
+
 ### 1.13 Completion
 
-After the plan is persisted and the report initialized:
+After the plan is persisted and the report committed:
 
 1. Show the GitHub Issue URL
 2. Show the adopt-report.md path
 3. Announce: "Discovery completo. Plano de transformação criado."
-4. Show next step: "Execute `/chama:adopt` novamente para iniciar a adaptação (Phase 2 da Spec), ou rode `/chama:code <issue-number>` para as phases individuais."
+4. Show next step: "Execute `/chama:adopt` novamente para iniciar a adaptação, ou rode `/chama:code <issue-number>` para as phases individuais."
 
 ---
 
