@@ -1145,10 +1145,10 @@ CI_FILE=""
 if [ -d ".github/workflows" ]; then
   CI_PROVIDER="github-actions"
   # Find the main workflow (prefer ci.yml, then the first yml)
-  if [ -f ".github/workflows/ci.yml" ]; then
-    CI_FILE=".github/workflows/ci.yml"
+  if [ -f ".github/workflows/ci.yml" ] || [ -f ".github/workflows/ci.yaml" ]; then
+    CI_FILE=$(ls .github/workflows/ci.{yml,yaml} 2>/dev/null | head -1)
   else
-    CI_FILE=$(ls .github/workflows/*.yml 2>/dev/null | head -1)
+    CI_FILE=$(ls .github/workflows/*.{yml,yaml} 2>/dev/null | head -1)
   fi
 elif [ -f ".gitlab-ci.yml" ]; then
   CI_PROVIDER="gitlab-ci"
@@ -1164,7 +1164,15 @@ fi
 if [ -z "$CI_PROVIDER" ]; then
   echo "No CI provider detected. Skipping CI integration."
   echo "Recommendation: set up GitHub Actions or your preferred CI."
-  # Document in adopt-report and skip
+  # Document in adopt-report and skip to next phase
+  # Add to adopt-report: "Phase 5: CI Integration — skipped (no CI provider detected)"
+  # SKIP to Phase 6 (Hooks Setup)
+fi
+
+# Guard: do not proceed without a valid CI file
+if [ -z "$CI_FILE" ]; then
+  echo "No CI workflow file found. Skipping CI integration."
+  # SKIP to Phase 6
 fi
 
 echo "CI provider: $CI_PROVIDER"
@@ -1267,6 +1275,14 @@ Part of the adoption plan: #<adopt-issue-number>
 
 **Developer must confirm before installing hooks.**
 
+Create phase branch:
+
+```bash
+git checkout chama-adopt
+git pull origin chama-adopt
+git checkout -b chama-adopt-phase6
+```
+
 #### 3.6.1 Determine hook commands
 
 Based on the stack and quality gates from `.chama.yml`:
@@ -1346,16 +1362,16 @@ Add stack-specific permissions based on the detected stack (e.g., `Bash(npm *)` 
 
 ```bash
 if [ -f ".claude/settings.json" ]; then
-  # Merge hooks into existing settings
+  # Merge hooks into existing settings (preserve existing hooks and permissions)
   TMP=$(mktemp)
-  jq '.hooks = {
-    "PreToolUse": [
+  jq '
+    .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [
       {
         "matcher": "Bash(git commit*)",
         "command": "<pre-commit-command>"
       }
-    ]
-  }' .claude/settings.json > "$TMP"
+    ] | unique_by(.matcher))
+  ' .claude/settings.json > "$TMP"
   mv "$TMP" .claude/settings.json
 fi
 ```
