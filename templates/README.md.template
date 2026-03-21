@@ -1,0 +1,42 @@
+# {{PROJECT_NAME}}
+
+{{DESCRIPTION}}
+
+## Quick Start
+
+```bash
+git clone {{REPO_URL}}
+cd {{PROJECT_DIR}}
+{{INSTALL_CMD}}
+{{RUN_CMD}}
+```
+
+## Stack
+
+{{TECH_STACK}}
+
+## Project Structure
+
+```
+{{DIRECTORY_TREE}}
+```
+
+## Development
+
+### Quality Gates
+
+{{QUALITY_GATES}}
+
+### Workflow
+
+This project uses [Chama](https://github.com/rafaelportugal/chama) for SDLC orchestration:
+
+- `/chama:ideas` — brainstorm features
+- `/chama:architect` — generate specs from ideas
+- `/chama:code` — implement phases
+- `/chama:review-loop` — review and merge PRs
+
+<!-- Omit this section entirely if the user chose "Nenhuma" (no license) -->
+## License
+
+{{LICENSE_SECTION}}
