@@ -224,14 +224,16 @@ fi
 Run gate-check in standalone mode (informational only):
 
 ```bash
-if [ -f "scripts/run-critical-gate.sh" ]; then
-  bash scripts/run-critical-gate.sh --mode standalone 2>/dev/null
-elif [ -f "${HOME}/.claude/plugins/chama/scripts/run-critical-gate.sh" ]; then
-  bash "${HOME}/.claude/plugins/chama/scripts/run-critical-gate.sh" --mode standalone 2>/dev/null
+# Standard gate-check discovery (consistent with code, review-loop, gate-check skills)
+if [ -d "chama/scripts" ]; then
+  GATE_SCRIPT="chama/scripts/run-critical-gate.sh"
+elif [ -d "${HOME}/.claude/plugins/chama/scripts" ]; then
+  GATE_SCRIPT="${HOME}/.claude/plugins/chama/scripts/run-critical-gate.sh"
 else
-  CACHE_GATE=$(find "$HOME/.claude/plugins/cache/chama" -name "run-critical-gate.sh" 2>/dev/null | head -1)
-  [ -n "$CACHE_GATE" ] && bash "$CACHE_GATE" --mode standalone 2>/dev/null || echo "INFO: gate-check not available for analysis"
+  GATE_SCRIPT="scripts/run-critical-gate.sh"
 fi
+
+bash "$GATE_SCRIPT" --mode standalone 2>/dev/null || echo "INFO: gate-check not available for analysis"
 ```
 
 ### 1.6 Branch Strategy Detection
