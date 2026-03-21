@@ -48,7 +48,7 @@ Analyze the prompt against the **11 mandatory fields** of the minimum contract (
 
 **Question count rules (field coverage is primary, word count is fallback):**
 - Prompt covers all 11 fields clearly → **0 questions** (skip to Stage 3)
-- Prompt covers most fields (7-9) → **1-2 questions** for missing fields
+- Prompt covers most fields (7-10) → **1-2 questions** for missing fields
 - Prompt covers some fields (4-6) → **3-4 questions** for missing fields
 - Prompt covers few fields (0-3) → **5 questions** for the most critical gaps
 
@@ -392,10 +392,10 @@ When existing artifacts are detected (pre-check), the entire flow changes to pre
 4. Ask: "Manter existente / Adicionar seções novas / Ver diff?"
 
 #### `LICENSE`
-1. If exists: show the existing license type and the one from synthesis
-2. If different: ask "Manter licença existente / Substituir por <new>?"
-3. If same: skip silently
-4. If not exists: create normally (unless user chose "Nenhuma")
+1. If exists and user chose a license (options 1-4): show the existing license type and the one from synthesis. If different: ask "Manter licença existente / Substituir por <new>?". If same: skip silently.
+2. If exists and user chose "Nenhuma" (option 5): ask "Existe um arquivo LICENSE. Deseja removê-lo?" — only remove with explicit confirmation.
+3. If not exists and user chose a license (options 1-4): create normally.
+4. If not exists and user chose "Nenhuma": skip silently.
 
 #### Directory structure
 - Only create directories that don't exist yet
