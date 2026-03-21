@@ -217,7 +217,7 @@ Create a contextual `CLAUDE.md` using the template as structural reference. Rule
 mkdir -p docs
 ```
 
-Create `docs/PROJECT_BRIEF.md` using `$CHAMA_TEMPLATES/PROJECT_BRIEF.md.template` as structural reference (if `$CHAMA_TEMPLATES` was found). If templates are not available, generate the brief from built-in knowledge following the 11-field contract. Must include all 11 fields from the synthesis. Use the current date.
+Create `docs/PROJECT_BRIEF.md` using `$CHAMA_TEMPLATES/PROJECT_BRIEF.md.template` as structural reference (if `$CHAMA_TEMPLATES` was found). If templates are not available, generate the brief from built-in knowledge. Must include all synthesis fields that map to `docs/PROJECT_BRIEF.md` in the minimum contract table (fields #1-#10; the License field #11 is covered by `LICENSE` and `README.md`). Use the current date.
 
 ### 4.4 Copy spec template
 
@@ -285,14 +285,20 @@ For each license type, generate the complete standard text with `{{YEAR}}` repla
 
 ```bash
 YEAR=$(date +%Y)
-AUTHOR=$(git config user.name 2>/dev/null || echo "<author>")
+AUTHOR=$(git config user.name 2>/dev/null)
+if [ -z "$AUTHOR" ]; then
+  # Fallback: extract owner from git remote URL
+  REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+  AUTHOR=$(echo "$REMOTE_URL" | sed -E 's#.*[:/](.+)/.+(\.git)?#\1#')
+fi
+[ -z "$AUTHOR" ] && AUTHOR="<author>"
 ```
 
 **License content:**
 
 - **MIT**: Standard MIT License text (~170 words). Begin with `MIT License\n\nCopyright (c) {{YEAR}} {{AUTHOR}}`.
 - **Apache 2.0**: Standard Apache License 2.0 text. Begin with `Apache License\nVersion 2.0, January 2004`.
-- **GPL v3**: Include the standard GPL v3 preamble and reference the full text at https://www.gnu.org/licenses/gpl-3.0.txt. Begin with the standard header: `GNU GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007`.
+- **GPL v3**: Include the standard GPL v3 preamble (~600 words) and the "How to Apply" section. Do NOT include the full 35KB text — instead, reference it: "The complete license text is available at https://www.gnu.org/licenses/gpl-3.0.txt". Begin with the standard header: `GNU GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007`. This is the standard practice for most GPL v3 projects.
 - **Proprietary**: Short proprietary notice: `Copyright (c) {{YEAR}} {{AUTHOR}}. All rights reserved.\n\nThis software is proprietary and confidential. Unauthorized copying, distribution, or use of this software, via any medium, is strictly prohibited.`
 
 ## Stage 5 — Summary + Optional Steps
