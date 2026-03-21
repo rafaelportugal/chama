@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.0] - 2026-03-21
+
+### Added
+- Recomendação automática de tipo de bump (patch/minor/major) via LLM no `make bump-version`
+- Geração de `README.md` e `LICENSE` no `/chama:new-project`, incluídos na fundação do projeto
+
 ## [1.5.1] - 2026-03-21
 
 ### Added
