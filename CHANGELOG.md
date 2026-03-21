@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.7.4] - 2026-03-21
+
+### Fixed
+- Corrigido erro do git ao fazer checkout de branch sem antes commitar o arquivo `adopt-report.md` no skill `/chama:adopt`
+
 ## [1.7.3] - 2026-03-21
 
 ### Corrigido
