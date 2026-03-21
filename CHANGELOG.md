@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.1] - 2026-03-21
+
+### Added
+- Flag `--full-scan` no comando `gate-check` para análise completa do repositório, sem limitar-se apenas aos arquivos alterados
+- Seção "Permissions Setup" ao README com instruções de configuração de permissões
+
+### Fixed
+- Correção no `find -printf` que omitia newline, causando concatenação de caminhos entre versões de cache
+
 ## [1.7.0] - 2026-03-21
 
 ### Added

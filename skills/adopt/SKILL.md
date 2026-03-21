@@ -34,8 +34,52 @@ DEFAULT_BRANCH="${CHAMA_DEFAULT_BRANCH:-$(yq '.github.default_branch' .chama.yml
 ## Overview
 
 The adoption flow has 2 macro-phases:
-1. **Discovery & Planning** — analyze the repo, generate diagnosis and transformation plan (this phase)
-2. **Adaptation** — execute phases to bring the repo to Chama standard (phases 2 and 3 of the Spec)
+1. **Discovery & Planning** — analyze the repo, generate diagnosis and transformation plan
+2. **Adaptation** — execute phases to bring the repo to Chama standard
+
+## Entry Point — Retomada Detection
+
+Before starting Discovery, check if an adoption is already in progress:
+
+```bash
+ADOPT_BRANCH_EXISTS=false
+if git branch --list chama-adopt | grep -q chama-adopt 2>/dev/null || git branch -r --list origin/chama-adopt | grep -q chama-adopt 2>/dev/null; then
+  ADOPT_BRANCH_EXISTS=true
+fi
+
+if [ "$ADOPT_BRANCH_EXISTS" = "true" ]; then
+  # Read last completed phase from adopt-report (always from branch ref, not working tree)
+  LAST_PHASE=""
+  if git show chama-adopt:.chama/adopt-report.md >/dev/null 2>&1; then
+    LAST_PHASE=$(git show chama-adopt:.chama/adopt-report.md 2>/dev/null | grep -oP '### Phase \K\d+' | tail -1)
+  elif git show origin/chama-adopt:.chama/adopt-report.md >/dev/null 2>&1; then
+    LAST_PHASE=$(git show origin/chama-adopt:.chama/adopt-report.md 2>/dev/null | grep -oP '### Phase \K\d+' | tail -1)
+  fi
+
+  echo ""
+  echo "⚡ Existing adoption detected!"
+  echo "  Branch: chama-adopt"
+  if [ -n "$LAST_PHASE" ]; then
+    echo "  Last completed phase: Phase $LAST_PHASE"
+    NEXT_PHASE=$((LAST_PHASE + 1))
+    echo "  Next: Phase $NEXT_PHASE"
+  else
+    echo "  Status: branch exists but no phases completed"
+    NEXT_PHASE=1
+  fi
+  echo ""
+  echo "  [resume] Continue from Phase $NEXT_PHASE"
+  echo "  [restart] Start over (delete chama-adopt branch)"
+  echo "  [cancel] Do nothing"
+  echo ""
+fi
+```
+
+**Rules:**
+- `resume` → checkout `chama-adopt`, skip to the next pending phase
+- `restart` → ask for confirmation, delete `chama-adopt` branch (local + remote), start fresh from Discovery
+- `cancel` → exit immediately, no changes
+- If no `chama-adopt` branch exists → proceed normally with Discovery
 
 ## Phase 1: Discovery & Planning
 
@@ -775,11 +819,64 @@ Update adopt-report:
 - Config files: <list>
 ```
 
-### 3.3 Adaptation Phase 3: Minimum Tests
+### 3.3 Adaptation Phase 3: Minimum Tests (Coverage Loop)
 
-**Skip if existing coverage ≥10%.**
+#### Read coverage target
 
-**Target: ≥10% coverage per project/package.** This is the minimum baseline — subsequent features via `/chama:code` will naturally increase coverage.
+```bash
+COVERAGE_TARGET=$(yq '.adopt.coverage_target // 10' .chama.yml 2>/dev/null)
+echo "Coverage target: ${COVERAGE_TARGET}%"
+```
+
+#### Measure current coverage
+
+Run tests with coverage instrumentation and parse the result:
+
+```bash
+measure_coverage() {
+  case "$STACK" in
+    node)
+      npm test -- --coverage --coverageReporters=json-summary 2>/dev/null
+      jq -r '.total.statements.pct // 0' coverage/coverage-summary.json 2>/dev/null || echo "0"
+      ;;
+    python)
+      pytest --cov --cov-report=term -q 2>/dev/null | grep -oP 'TOTAL.*\s(\d+)%' | grep -oP '\d+(?=%)' || echo "0"
+      ;;
+    go)
+      go test -cover ./... 2>/dev/null | grep -oP '\d+\.\d+(?=%)' | awk '{s+=$1; n++} END {if(n>0) print s/n; else print 0}'
+      ;;
+    dotnet)
+      dotnet test --collect:"XPlat Code Coverage" 2>/dev/null
+      python3 -c "import xml.etree.ElementTree as ET; t=ET.parse('TestResults/coverage.cobertura.xml'); print(round(float(t.getroot().get('line-rate','0'))*100,1))" 2>/dev/null || echo "0"
+      ;;
+    rust)
+      cargo tarpaulin --out json 2>/dev/null | jq -r '.coverage_percent // 0' || echo "0"
+      ;;
+    java)
+      ./mvnw test jacoco:report 2>/dev/null
+      python3 -c "import xml.etree.ElementTree as ET; r=ET.parse('target/site/jacoco/jacoco.xml').getroot(); c=r.find('.//counter[@type=\"LINE\"]'); print(round(int(c.get('covered'))/(int(c.get('covered'))+int(c.get('missed')))*100,1))" 2>/dev/null || echo "0"
+      ;;
+    *) echo "0" ;;
+  esac
+}
+
+# Float comparison helper (uses awk instead of bc for portability)
+coverage_meets_target() {
+  awk "BEGIN {exit !($1 >= $2)}"
+}
+```
+
+#### Skip check
+
+```bash
+CURRENT_COVERAGE=$(measure_coverage)
+if coverage_meets_target "$CURRENT_COVERAGE" "$COVERAGE_TARGET"; then
+  echo "✓ Coverage already at ${CURRENT_COVERAGE}% (target: ${COVERAGE_TARGET}%). Skipping Phase 3."
+  # Skip to Phase 4
+fi
+```
+
+#### Coverage loop
 
 Create phase branch:
 
@@ -789,7 +886,55 @@ git pull origin chama-adopt
 git checkout -b chama-adopt-phase3
 ```
 
-#### Test creation strategy
+Execute the coverage loop (max 5 iterations). Each iteration: identify uncovered modules → generate tests → validate → commit → re-measure.
+
+```bash
+MAX_ITERATIONS=5
+ITERATION=1
+# Reuse CURRENT_COVERAGE from skip check (avoid redundant first measurement)
+
+while [ $ITERATION -le $MAX_ITERATIONS ]; do
+  # Re-measure only from iteration 2+ (iteration 1 reuses the skip check value)
+  if [ $ITERATION -gt 1 ]; then
+    CURRENT_COVERAGE=$(measure_coverage)
+  fi
+
+  echo ""
+  echo "Coverage loop iteration $ITERATION:"
+  echo "  Current: ${CURRENT_COVERAGE}% | Target: ${COVERAGE_TARGET}%"
+
+  if coverage_meets_target "$CURRENT_COVERAGE" "$COVERAGE_TARGET"; then
+    echo "  ✓ Target reached: ${CURRENT_COVERAGE}% >= ${COVERAGE_TARGET}%"
+    break
+  fi
+
+  # The LLM agent should:
+  # 1. Identify uncovered modules (files with 0% or lowest coverage)
+  # 2. Generate tests for the highest-impact uncovered modules
+  # 3. Run unit tests and handle failures (see "Handling test failures" below)
+  # 4. Commit this iteration's tests for safety (see below)
+
+  ITERATION=$((ITERATION + 1))
+done
+
+if ! coverage_meets_target "$CURRENT_COVERAGE" "$COVERAGE_TARGET"; then
+  echo "⚠️ Target not reached after $MAX_ITERATIONS iterations."
+  echo "  Current: ${CURRENT_COVERAGE}% | Target: ${COVERAGE_TARGET}%"
+  echo "  Adding to Improvement Backlog in adopt-report."
+fi
+```
+
+**Commit per iteration** — after each iteration, commit the tests created so far. This protects against interruption and makes the PR reviewable per iteration:
+
+```bash
+# After each iteration's tests are validated:
+git add tests/ e2e/ __tests__/ 2>/dev/null || true
+find . -name "*_test.go" -not -path "*/vendor/*" -exec git add {} \; 2>/dev/null || true
+[ -d "src/test/" ] && git add src/test/
+git commit -m "chore: adopt phase 3 — coverage loop iteration $ITERATION (${CURRENT_COVERAGE}%)"
+```
+
+#### Test creation strategy (per iteration)
 
 Generate tests by priority layer. **Golden Rule: do NOT modify application source code.** Test file placement follows stack conventions:
 - **Node/Python/C#**: test files go in dedicated test directories (`tests/`, `__tests__/`, `*.Tests/`)
@@ -797,21 +942,12 @@ Generate tests by priority layer. **Golden Rule: do NOT modify application sourc
 - **Rust**: `#[test]` modules are inline (Rust convention) or in `tests/` directory
 - **Java**: test files go in `src/test/java/` (Maven/Gradle convention)
 
-**1. Unit tests (highest priority):**
-- Identify pure functions, utilities, validators, helpers in the codebase
-- Create unit tests for the most critical ones
-- Target: functions with business logic, not trivial getters/setters
+**Priority order per iteration:**
+1. **Unit tests** — pure functions, validators, business logic (highest coverage impact)
+2. **Integration tests** — API endpoints, service interactions
+3. **E2E tests** — main user flows (if frontend exists)
 
-**2. Integration tests:**
-- Identify API endpoints, database queries, service interactions
-- Create integration tests for the most critical routes/operations
-- For APIs: test main CRUD operations with expected responses
-- Use mocks/fixtures in the test directory (never modify src/)
-
-**3. E2E tests (if frontend exists):**
-- Identify the main user flows (login, dashboard, primary action)
-- Create Playwright/Cypress tests for 1-3 critical flows
-- E2E tests go in `e2e/` or `tests/e2e/` directory
+Focus each iteration on the **uncovered modules with the most lines of code** — these give the most coverage per test.
 
 #### Per-stack test patterns
 
@@ -824,19 +960,11 @@ Generate tests by priority layer. **Golden Rule: do NOT modify application sourc
 | Rust | `#[test]` inline or `tests/` | `tests/` | — |
 | Java | `src/test/java/` | `src/test/java/` with `@SpringBootTest` | — |
 
-#### Monorepo handling
+#### Handling test failures
 
-For monorepos, process each component separately:
-- Each component must reach ≥10% coverage individually
-- Run tests per component: `cd <component> && <test-command>`
-- Report coverage per component in adopt-report
-
-#### Validation
-
-After creating tests, verify **unit tests** pass (skip integration/E2E which may need external services):
+After creating tests in each iteration, run **unit tests only** (skip integration/E2E):
 
 ```bash
-# Run only unit tests per stack (skip integration/E2E to avoid infra dependencies)
 case "$STACK" in
   node) npm test -- --testPathPattern="unit|__tests__" 2>/dev/null || npm test ;;
   python) pytest -q -m "not integration and not e2e" 2>/dev/null || pytest -q ;;
@@ -847,44 +975,69 @@ case "$STACK" in
 esac
 ```
 
-If tests fail: fix the test (not the application code). If a test cannot pass without modifying src/, remove it and note in the adopt-report as an item for the Improvement Backlog. If a test fails due to missing infrastructure (database, API), tag it appropriately and exclude from the default run.
+**If a test fails:**
+1. **COMMENT OUT** the failing test (do NOT delete it, do NOT modify src/)
+2. Add a comment: `// ADOPT: commented — <reason why it fails without src/ changes>`
+3. Document in adopt-report: test name, file, reason
+4. Generate a **different test** that passes to compensate the coverage
+5. Continue the loop — commented tests do NOT count toward coverage
 
-Commit and PR:
+**If a test fails due to missing infrastructure** (database, API not running):
+1. Comment out with: `// ADOPT: commented — requires <service> infrastructure`
+2. Tag with appropriate marker (e.g., `@pytest.mark.integration`, `//go:build integration`)
+3. Compensate with unit tests that don't need infrastructure
+
+#### Monorepo handling
+
+For monorepos, run the coverage loop **per component**:
+- Each component must reach the coverage target individually
+- Run: `cd <component> && measure_coverage && <loop>`
+- Report coverage per component in adopt-report
+
+#### Commit and PR
+
+After the loop completes (target reached or max iterations):
 
 ```bash
 # Stage only test files (Golden Rule: never stage src/ application code)
 git add tests/ e2e/ __tests__/ 2>/dev/null || true
-# For Go: stage *_test.go files
 find . -name "*_test.go" -not -path "*/vendor/*" -exec git add {} \; 2>/dev/null || true
-# For Rust: stage tests/ directory
 [ -d "tests/" ] && git add tests/
-# For Java: stage src/test/
 [ -d "src/test/" ] && git add src/test/
-git commit -m "chore: adopt phase 3 — minimum tests"
+git commit -m "chore: adopt phase 3 — minimum tests (coverage: ${CURRENT_COVERAGE}%)"
 git push -u origin chama-adopt-phase3
 
 gh pr create \
   --base chama-adopt \
-  --title "adopt: Phase 3 — Minimum Tests (≥10% coverage)" \
+  --title "adopt: Phase 3 — Minimum Tests (coverage: ${CURRENT_COVERAGE}%)" \
   --body "## Adoption Phase 3: Minimum Tests
 
 Part of the adoption plan: #<adopt-issue-number>
+
+### Coverage
+- Target: ${COVERAGE_TARGET}%
+- Achieved: ${CURRENT_COVERAGE}%
+- Iterations: $ITERATION
 
 ### Tests Created
 - Unit: <count>
 - Integration: <count>
 - E2E: <count>
-- Estimated coverage: <percentage>"
+
+### Commented Tests (failures)
+<list of commented tests with reasons>"
 ```
 
-Update adopt-report:
+#### Update adopt-report
 
 ```markdown
-### Phase 3: Minimum Tests
-- Unit tests: <count> files
-- Integration tests: <count> files
-- E2E tests: <count> files
-- Coverage: <before>% → <after>%
+### Phase 3: Minimum Tests (Coverage Loop)
+- Coverage target: <target>%
+- Coverage achieved: <achieved>%
+- Iterations: <count>
+- Tests created: <unit> unit, <integration> integration, <e2e> E2E
+- Tests commented (failures): <count>
+  - <test-name>: <reason>
 ```
 
 ### 3.4 Adaptation Phase 4: Quality Gates & Hardening
