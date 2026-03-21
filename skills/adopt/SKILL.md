@@ -47,55 +47,38 @@ Detect the primary stack by analyzing project files:
 STACK=""
 FRAMEWORK=""
 
-# Node / JavaScript / TypeScript
+# Detect primary stack (elif prevents polyglot override)
 if [ -f "package.json" ]; then
   STACK="node"
-  DEPS=$(cat package.json | jq -r '(.dependencies // {}) + (.devDependencies // {}) | keys[]' 2>/dev/null)
+  DEPS=$(jq -r '(.dependencies // {}) + (.devDependencies // {}) | keys[]' package.json 2>/dev/null)
   echo "$DEPS" | grep -qx "next" && FRAMEWORK="nextjs"
   echo "$DEPS" | grep -qx "react" && [ -z "$FRAMEWORK" ] && FRAMEWORK="react"
   echo "$DEPS" | grep -qx "express" && FRAMEWORK="express"
   echo "$DEPS" | grep -qx "fastify" && FRAMEWORK="fastify"
   echo "$DEPS" | grep -qx "@nestjs/core" && FRAMEWORK="nestjs"
-fi
-
-# Python
-if [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
-  STACK="python"
-  if [ -f "requirements.txt" ]; then
-    grep -qi "fastapi" requirements.txt && FRAMEWORK="fastapi"
-    grep -qi "django" requirements.txt && FRAMEWORK="django"
-    grep -qi "flask" requirements.txt && FRAMEWORK="flask"
-  fi
-  if [ -f "pyproject.toml" ]; then
-    grep -qi "fastapi" pyproject.toml && FRAMEWORK="fastapi"
-    grep -qi "django" pyproject.toml && FRAMEWORK="django"
-  fi
-fi
-
-# Go
-if [ -f "go.mod" ]; then
+elif [ -f "go.mod" ]; then
   STACK="go"
   grep -q "github.com/gin-gonic/gin" go.mod && FRAMEWORK="gin"
   grep -q "github.com/gofiber/fiber" go.mod && FRAMEWORK="fiber"
   grep -q "github.com/labstack/echo" go.mod && FRAMEWORK="echo"
   grep -q "google.golang.org/grpc" go.mod && FRAMEWORK="grpc"
-fi
-
-# C# / .NET
-if ls *.csproj 2>/dev/null | head -1 > /dev/null || [ -f "*.sln" ]; then
+elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
+  STACK="python"
+  for pyfile in requirements.txt pyproject.toml; do
+    if [ -f "$pyfile" ]; then
+      grep -qi "fastapi" "$pyfile" && FRAMEWORK="fastapi"
+      grep -qi "django" "$pyfile" && FRAMEWORK="django"
+      grep -qi "flask" "$pyfile" && FRAMEWORK="flask"
+    fi
+  done
+elif ls *.csproj *.sln 2>/dev/null | head -1 > /dev/null; then
   STACK="dotnet"
   grep -qi "Microsoft.AspNetCore" *.csproj 2>/dev/null && FRAMEWORK="aspnet"
-fi
-
-# Rust
-if [ -f "Cargo.toml" ]; then
+elif [ -f "Cargo.toml" ]; then
   STACK="rust"
   grep -q "axum" Cargo.toml && FRAMEWORK="axum"
   grep -q "actix" Cargo.toml && FRAMEWORK="actix"
-fi
-
-# Java / Spring
-if [ -f "pom.xml" ] || [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+elif [ -f "pom.xml" ] || [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
   STACK="java"
   grep -qi "spring-boot" pom.xml 2>/dev/null && FRAMEWORK="spring-boot"
   grep -qi "spring-boot" build.gradle 2>/dev/null && FRAMEWORK="spring-boot"
@@ -108,10 +91,18 @@ echo "Framework: ${FRAMEWORK:-generic}"
 
 For **monorepos**, check for multiple stack files in subdirectories:
 ```bash
-# Detect monorepo structure
+# Detect monorepo structure (checks 2 levels deep, excludes common non-project dirs)
 COMPONENTS=()
-for dir in */; do
-  if [ -f "${dir}package.json" ] || [ -f "${dir}go.mod" ] || [ -f "${dir}requirements.txt" ] || [ -f "${dir}Cargo.toml" ] || ls "${dir}"*.csproj 2>/dev/null | head -1 > /dev/null || [ -f "${dir}pom.xml" ]; then
+for dir in */ */*/; do
+  [ -d "$dir" ] || continue
+  # Skip common non-project directories
+  case "$dir" in
+    node_modules/*|.git/*|vendor/*|target/*|dist/*|build/*) continue ;;
+  esac
+  if [ -f "${dir}package.json" ] || [ -f "${dir}go.mod" ] || [ -f "${dir}requirements.txt" ] || \
+     [ -f "${dir}pyproject.toml" ] || [ -f "${dir}Cargo.toml" ] || [ -f "${dir}pom.xml" ] || \
+     [ -f "${dir}build.gradle" ] || [ -f "${dir}build.gradle.kts" ] || \
+     ls "${dir}"*.csproj 2>/dev/null | head -1 > /dev/null; then
     COMPONENTS+=("$dir")
   fi
 done
@@ -120,6 +111,11 @@ if [ ${#COMPONENTS[@]} -gt 1 ]; then
   echo "MONOREPO detected: ${COMPONENTS[*]}"
   echo "Each component will be analyzed separately."
 fi
+
+# Also check for workspace-based monorepos
+[ -f "package.json" ] && jq -e '.workspaces' package.json >/dev/null 2>&1 && echo "NPM/Yarn workspaces detected"
+[ -f "Cargo.toml" ] && grep -q '\[workspace\]' Cargo.toml 2>/dev/null && echo "Cargo workspace detected"
+[ -f "go.work" ] && echo "Go workspace detected"
 ```
 
 If the stack cannot be detected, ask the developer:
@@ -148,30 +144,31 @@ case "$STACK" in
     # E2E
     echo "$DEPS" | grep -qx "@playwright/test" && HAS_E2E=true
     echo "$DEPS" | grep -qx "cypress" && HAS_E2E=true
-    # Count test files
-    TEST_FILES=$(find . -name "*.test.*" -o -name "*.spec.*" -o -name "__tests__" | grep -c . 2>/dev/null || echo 0)
+    # Count test files (exclude node_modules, dist, build)
+    TEST_FILES=$(find . -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/.git/*" \( -name "*.test.*" -o -name "*.spec.*" \) | grep -c . 2>/dev/null || echo 0)
     ;;
   python)
-    [ -f "pytest.ini" ] || [ -f "setup.cfg" ] || [ -f "pyproject.toml" ] && grep -qi "pytest" pyproject.toml 2>/dev/null && TEST_FRAMEWORK="pytest"
-    command -v pytest >/dev/null 2>&1 && TEST_FRAMEWORK="pytest"
-    TEST_FILES=$(find . -name "test_*.py" -o -name "*_test.py" | grep -c . 2>/dev/null || echo 0)
+    # Check for pytest in any config file
+    [ -f "pytest.ini" ] && TEST_FRAMEWORK="pytest"
+    [ -f "setup.cfg" ] && grep -qi "pytest" setup.cfg 2>/dev/null && TEST_FRAMEWORK="pytest"
+    [ -f "pyproject.toml" ] && grep -qi "pytest" pyproject.toml 2>/dev/null && TEST_FRAMEWORK="pytest"
+    TEST_FILES=$(find . -not -path "*/.git/*" -not -path "*/__pycache__/*" -not -path "*/.venv/*" \( -name "test_*.py" -o -name "*_test.py" \) | grep -c . 2>/dev/null || echo 0)
     ;;
   go)
     TEST_FRAMEWORK="go-test" # Built-in
-    TEST_FILES=$(find . -name "*_test.go" | grep -c . 2>/dev/null || echo 0)
+    TEST_FILES=$(find . -not -path "*/.git/*" -not -path "*/vendor/*" -name "*_test.go" | grep -c . 2>/dev/null || echo 0)
     ;;
   dotnet)
-    ls *Tests*/*.csproj 2>/dev/null && TEST_FRAMEWORK="xunit-or-nunit"
-    TEST_FILES=$(find . -name "*Tests.cs" -o -name "*Test.cs" | grep -c . 2>/dev/null || echo 0)
+    ls *Tests*/*.csproj >/dev/null 2>&1 && TEST_FRAMEWORK="xunit-or-nunit"
+    TEST_FILES=$(find . -not -path "*/.git/*" -not -path "*/bin/*" -not -path "*/obj/*" \( -name "*Tests.cs" -o -name "*Test.cs" \) | grep -c . 2>/dev/null || echo 0)
     ;;
   rust)
     TEST_FRAMEWORK="cargo-test" # Built-in
-    # Rust tests are inline, count files with #[test]
-    TEST_FILES=$(grep -rl "#\[test\]" --include="*.rs" . 2>/dev/null | wc -l || echo 0)
+    TEST_FILES=$(grep -rl "#\[test\]" --include="*.rs" --exclude-dir=target --exclude-dir=.git . 2>/dev/null | wc -l || echo 0)
     ;;
   java)
     [ -d "src/test" ] && TEST_FRAMEWORK="junit"
-    TEST_FILES=$(find . -path "*/test/*" -name "*Test.java" -o -name "*Tests.java" | grep -c . 2>/dev/null || echo 0)
+    TEST_FILES=$(find . -not -path "*/.git/*" -not -path "*/target/*" -path "*/test/*" \( -name "*Test.java" -o -name "*Tests.java" \) | grep -c . 2>/dev/null || echo 0)
     ;;
 esac
 
@@ -180,19 +177,19 @@ echo "Test files: $TEST_FILES"
 echo "E2E configured: $HAS_E2E"
 ```
 
-Try to measure current coverage (best-effort):
+Estimate coverage from test file count (do NOT run test suites during discovery — tests can have side effects):
 ```bash
-case "$STACK" in
-  node)
-    npx jest --coverage --coverageReporters=text-summary 2>/dev/null | grep "Statements" || echo "Coverage: unknown"
-    ;;
-  python)
-    pytest --cov --cov-report=term-summary -q 2>/dev/null | grep "TOTAL" || echo "Coverage: unknown"
-    ;;
-  go)
-    go test -cover ./... 2>/dev/null | grep "coverage" || echo "Coverage: unknown"
-    ;;
-esac
+# Check for existing coverage reports (read-only)
+COVERAGE="unknown"
+[ -f "coverage/coverage-summary.json" ] && COVERAGE=$(jq -r '.total.statements.pct // "unknown"' coverage/coverage-summary.json 2>/dev/null)
+[ -f "htmlcov/index.html" ] && COVERAGE="report exists (check htmlcov/)"
+[ -f ".coverage" ] && COVERAGE="report exists (run: coverage report)"
+
+echo "Coverage: $COVERAGE"
+echo "Test files found: $TEST_FILES"
+if [ "$TEST_FILES" -eq 0 ] 2>/dev/null; then
+  echo "Estimated coverage: 0% (no test files)"
+fi
 ```
 
 ### 1.3 Docs Assessment
