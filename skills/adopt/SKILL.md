@@ -243,28 +243,39 @@ fi
 
 ```bash
 echo "=== Docs Assessment ==="
-[ -f "README.md" ] && echo "✓ README.md" || echo "❌ README.md missing"
-[ -f "CLAUDE.md" ] && echo "✓ CLAUDE.md" || echo "❌ CLAUDE.md missing"
-[ -f ".chama.yml" ] && echo "✓ .chama.yml" || echo "❌ .chama.yml missing"
-[ -f "docs/PROJECT_BRIEF.md" ] && echo "✓ docs/PROJECT_BRIEF.md" || echo "❌ docs/PROJECT_BRIEF.md missing"
-[ -f "LICENSE" ] && echo "✓ LICENSE" || echo "❌ LICENSE missing"
-[ -d ".chama/templates" ] && [ -f ".chama/templates/spec.md" ] && echo "✓ .chama/templates/spec.md" || echo "❌ spec template missing"
+for doc in README.md CLAUDE.md .chama.yml docs/PROJECT_BRIEF.md LICENSE .chama/templates/spec.md; do
+  if [ -e "$doc" ]; then
+    echo "  ✓ $doc"
+  else
+    echo "  ❌ $doc missing"
+  fi
+done
 ```
 
 ### 1.4 CI/CD Assessment
 
 ```bash
 echo "=== CI/CD Assessment ==="
-[ -d ".github/workflows" ] && echo "✓ GitHub Actions detected" && ls .github/workflows/ || true
-[ -f ".gitlab-ci.yml" ] && echo "✓ GitLab CI detected" || true
-[ -f "Jenkinsfile" ] && echo "✓ Jenkins detected" || true
-[ -f ".circleci/config.yml" ] && echo "✓ CircleCI detected" || true
+CI_FOUND=false
 
-# Check if tests run in CI
 if [ -d ".github/workflows" ]; then
-  grep -rl "test" .github/workflows/ 2>/dev/null && echo "✓ Test step found in CI" || echo "⚠️ No test step in CI"
+  echo "  ✓ GitHub Actions detected"
+  ls .github/workflows/
+  CI_FOUND=true
+  if grep -rl "test" .github/workflows/ >/dev/null 2>&1; then
+    echo "  ✓ Test step found in CI"
+  else
+    echo "  ⚠️ No test step in CI"
+  fi
 fi
-true
+
+if [ -f ".gitlab-ci.yml" ]; then echo "  ✓ GitLab CI detected"; CI_FOUND=true; fi
+if [ -f "Jenkinsfile" ]; then echo "  ✓ Jenkins detected"; CI_FOUND=true; fi
+if [ -f ".circleci/config.yml" ]; then echo "  ✓ CircleCI detected"; CI_FOUND=true; fi
+
+if [ "$CI_FOUND" = "false" ]; then
+  echo "  ❌ No CI/CD detected"
+fi
 ```
 
 ### 1.5 Code Quality Analysis
