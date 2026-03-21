@@ -172,6 +172,67 @@ make bump-version
 
 Shows commits since last bump, generates a categorized changelog via `claude --print`, asks for bump type (patch/minor/major), and commits.
 
+## Permissions Setup
+
+Chama commands run git, gh, npm, and other CLI tools. To avoid approving every operation manually, configure permissions in your project.
+
+### Per-project (recommended)
+
+Create `.claude/settings.json` in your repo root:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(yq *)",
+      "Bash(jq *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(pip *)",
+      "Bash(go *)",
+      "Bash(cargo *)",
+      "Bash(dotnet *)",
+      "Bash(./mvnw *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(mkdir *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(sort *)",
+      "Bash(bash scripts/*)",
+      "Bash(chmod *)"
+    ]
+  }
+}
+```
+
+This allows Chama to run smoothly without interruptions. Adjust the list based on your stack — remove tools you don't use, add stack-specific ones (e.g., `Bash(mvn *)`, `Bash(gradle *)`).
+
+### Per-session (via flags)
+
+Launch Claude Code with explicit permissions:
+
+```bash
+# Interactive session with Chama permissions
+claude --allowedTools "Bash(git *)" "Bash(gh *)" "Bash(yq *)" "Bash(jq *)" "Bash(npm *)" "Bash(bash scripts/*)"
+```
+
+### For headless / compose mode
+
+```bash
+# Headless with full permissions for the pipeline
+claude -p --allowedTools "Bash(git *)" "Bash(gh *)" "Bash(yq *)" "Bash(jq *)" "Bash(npm *)" "Bash(bash scripts/*)"
+```
+
+### Tip for `/chama:adopt`
+
+The adopt workflow is the most tool-intensive command (runs git, gh, package managers, test frameworks). For a smooth adoption experience, set up `.claude/settings.json` **before** running `/chama:adopt`.
+
 ## GitHub Issues as Storage
 
 Instead of local `.md` files, ideas and Specs live as GitHub Issues:
