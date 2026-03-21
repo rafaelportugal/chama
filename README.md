@@ -42,7 +42,7 @@ The name "chama" combines fire with the act of "calling/invoking" — perfect fo
 | Command | Description |
 |---------|-------------|
 | `/chama:new-project` | Guided bootstrap — idea -> synthesis -> local foundation (`.chama.yml`, `CLAUDE.md`, `README.md`, `LICENSE`, `docs/`) |
-| `/chama:adopt` | Adopt existing repo — analyze stack, plan transformation, generate tests/docs/gates |
+| `/chama:adopt` | Adopt existing repo — analyze stack, generate diagnosis and transformation plan |
 | `/chama:init` | Project onboarding — creates `.chama.yml`, GitHub labels, project board |
 | `/chama:ideas` | Ideas studio — brainstorm with Product Lead + Designer personas |
 | `/chama:architect` | Idea -> Spec + phases (all as GitHub Issues) |

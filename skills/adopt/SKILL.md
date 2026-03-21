@@ -53,9 +53,9 @@ if [ -f "package.json" ]; then
   DEPS=$(jq -r '(.dependencies // {}) + (.devDependencies // {}) | keys[]' package.json 2>/dev/null)
   echo "$DEPS" | grep -qx "next" && FRAMEWORK="nextjs"
   echo "$DEPS" | grep -qx "react" && [ -z "$FRAMEWORK" ] && FRAMEWORK="react"
-  echo "$DEPS" | grep -qx "express" && FRAMEWORK="express"
-  echo "$DEPS" | grep -qx "fastify" && FRAMEWORK="fastify"
-  echo "$DEPS" | grep -qx "@nestjs/core" && FRAMEWORK="nestjs"
+  echo "$DEPS" | grep -qx "express" && [ -z "$FRAMEWORK" ] && FRAMEWORK="express"
+  echo "$DEPS" | grep -qx "fastify" && [ -z "$FRAMEWORK" ] && FRAMEWORK="fastify"
+  echo "$DEPS" | grep -qx "@nestjs/core" && [ -z "$FRAMEWORK" ] && FRAMEWORK="nestjs"
 elif [ -f "go.mod" ]; then
   STACK="go"
   grep -q "github.com/gin-gonic/gin" go.mod && FRAMEWORK="gin"
@@ -137,7 +137,9 @@ HAS_E2E=false
 case "$STACK" in
   node)
     # Jest
-    [ -f "jest.config.js" ] || [ -f "jest.config.ts" ] || [ -f "jest.config.mjs" ] && TEST_FRAMEWORK="jest"
+    if [ -f "jest.config.js" ] || [ -f "jest.config.ts" ] || [ -f "jest.config.mjs" ]; then
+      TEST_FRAMEWORK="jest"
+    fi
     echo "$DEPS" | grep -qx "jest" && TEST_FRAMEWORK="jest"
     echo "$DEPS" | grep -qx "vitest" && TEST_FRAMEWORK="vitest"
     echo "$DEPS" | grep -qx "mocha" && TEST_FRAMEWORK="mocha"
@@ -248,9 +250,13 @@ echo "Default branch: $DEFAULT"
 git branch -r 2>/dev/null | grep -q "origin/develop" && echo "Intermediate branch: develop"
 git branch -r 2>/dev/null | grep -q "origin/staging" && echo "Intermediate branch: staging"
 
-# Check PR patterns
+# Check PR patterns (REPO may be empty if .chama.yml doesn't exist yet)
 echo "Recent PR base branches:"
-gh pr list --repo "$REPO" --state merged --limit 10 --json baseRefName --jq '.[].baseRefName' 2>/dev/null | sort | uniq -c | sort -rn
+if [ -n "$REPO" ] && [ "$REPO" != "null" ]; then
+  gh pr list --repo "$REPO" --state merged --limit 10 --json baseRefName --jq '.[].baseRefName' 2>/dev/null | sort | uniq -c | sort -rn
+else
+  gh pr list --state merged --limit 10 --json baseRefName --jq '.[].baseRefName' 2>/dev/null | sort | uniq -c | sort -rn
+fi
 ```
 
 **Always confirm with the developer before proceeding:**
