@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.7.2] - 2026-03-21
+
+### Added
+- Template customizável para plano de adoção (`/chama:adopt`): suporte a `.chama/templates/adopt-plan.md` com fallback para template padrão, permitindo adicionar, remover, reordenar fases e marcar fases como paralelas
+- Template padrão `templates/adopt-plan.md.default` com as 6 fases de adoção e exemplos de fases customizadas
+- Estratégia de paralelização no `/chama:adopt` usando git worktrees para execução concorrente de fases independentes (ex: Phase 5 + Phase 6 em paralelo)
+- Phase 5 — CI Integration: detecção automática de provider (GitHub Actions, GitLab CI, Jenkins, CircleCI) e adição de step de teste ao pipeline existente sem reescrever o arquivo
+- Phase 6 — Hooks Setup: configuração de pre-commit (lint + typecheck) e PR gate (tests + gate-check) com merge seguro no `.claude/settings.json`
+
+### Changed
+- Reestruturação dos steps do plano de adoção (1.8→1.13) para acomodar carregamento de template e estratégia de paralelização
+- Plano de transformação agora exibe as 6 fases padrão + fases customizadas do template, com indicação visual de fases paralelas
+
+### Fixed
+- Detecção de CI corrigida para lidar com extensão `.yaml` além de `.yml`
+- Guard adicionado para `CI_FILE` vazio (skip quando nenhum workflow é encontrado)
+- Criação de branch faltante na Phase 6 (`chama-adopt-phase6`)
+- Merge de hooks no `settings.json` usando `+= com unique_by` para preservar hooks existentes
+- Limpeza de worktrees e recuperação em caso de conflito de merge durante paralelização
+
 ## [1.7.1] - 2026-03-21
 
 ### Added
