@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.3] - 2026-03-21
+
+### Corrigido
+
+- Adicionado `|| true` em todos os blocos bash condicionais do `/chama:adopt` para evitar falhas quando comandos `grep`/`test` não encontram correspondência (exit code 1 interrompia a cadeia `&&`)
+
 ## [1.7.2] - 2026-03-21
 
 ### Added
