@@ -345,9 +345,32 @@ Gaps encontrados:
   ⚠️ Sem E2E tests
 ```
 
-### 1.8 Generate Transformation Plan
+### 1.8 Load Plan Template
 
-Based on the diagnosis, generate a prioritized plan:
+Check if the project has a custom adoption plan template:
+
+```bash
+PLAN_TEMPLATE=""
+if [ -f ".chama/templates/adopt-plan.md" ]; then
+  PLAN_TEMPLATE=".chama/templates/adopt-plan.md"
+  echo "Custom adoption plan template found: $PLAN_TEMPLATE"
+elif [ -n "$CHAMA_TEMPLATES" ] && [ -f "$CHAMA_TEMPLATES/adopt-plan.md.default" ]; then
+  PLAN_TEMPLATE="$CHAMA_TEMPLATES/adopt-plan.md.default"
+  echo "Using default adoption plan template"
+fi
+```
+
+If a template is found, read it and use its phase structure as the basis for the plan. The template may include:
+- Custom phases (e.g., "Migrate to TypeScript", "Add API Documentation")
+- Removed phases (phases that don't apply to this project)
+- Reordered phases
+- Phases tagged with `(parallel)` to indicate they can run concurrently
+
+If no template is found, use the built-in default plan.
+
+### 1.9 Generate Transformation Plan
+
+Based on the diagnosis and template (if any), generate a prioritized plan:
 
 ```
 ─────────────────────────────────────────
@@ -358,7 +381,7 @@ Transformation Plan:
     - Update README.md with Quick Start
     - Install recommended plugins
 
-  Phase 2: Test Infrastructure                     [M]
+  Phase 2: Test Infrastructure (parallel)          [M]
     - Configure <test-framework> for <stack>
     - Install and configure <e2e-framework> for frontend
     (skip if test infrastructure already exists)
@@ -369,8 +392,15 @@ Transformation Plan:
 
   Phase 4: Quality Gates & Hardening               [M]
     - Run gate-check, fix CRITICAL findings
-    - Run simplify on complex modules (analysis only)
     - Configure quality gates in .chama.yml
+
+  Phase 5: CI Integration (parallel)               [M]
+    - Add test step to CI pipeline
+
+  Phase 6: Hooks Setup (parallel)                  [S]
+    - Configure pre-commit and PR hooks
+
+  <custom phases from template, if any>
 
 Confirm plan? [Y/adjust/cancel]:
 ```
@@ -378,10 +408,58 @@ Confirm plan? [Y/adjust/cancel]:
 **Rules:**
 - If test infrastructure exists and coverage ≥10%: skip Phases 2 and 3
 - If docs are complete: skip relevant items in Phase 1
+- If no CI detected: skip Phase 5
 - Developer can adjust (remove phases, change order, add custom phases)
 - "cancel" stops immediately — no artifacts created
+- Phases tagged `(parallel)` are executed concurrently (see Parallelization below)
 
-### 1.9 Persist Plan as GitHub Issue
+### 1.10 Parallelization Strategy
+
+Phases tagged with `(parallel)` in the plan can run concurrently when they modify disjoint files.
+
+**Default parallel groups:**
+- **Group A** (after Phase 1): Phase 2 (Test Infra) — can run alone or with CI/Hooks if no test dependency
+- **Group B** (after Phase 3): Phase 5 (CI Integration) + Phase 6 (Hooks Setup) — modify different files, no dependency
+
+**Execution model:**
+
+```bash
+# Sequential phases run one at a time on chama-adopt
+# Parallel phases use separate branches that merge back
+
+# Example: Phase 5 + Phase 6 in parallel
+git checkout chama-adopt
+
+# Start Phase 5 in background
+git worktree add /tmp/chama-adopt-phase5 -b chama-adopt-phase5 chama-adopt
+# (execute Phase 5 in the worktree)
+
+# Start Phase 6 on current checkout
+git checkout -b chama-adopt-phase6
+# (execute Phase 6 here)
+
+# After both complete, merge results
+git checkout chama-adopt
+git merge chama-adopt-phase5 --no-edit
+git merge chama-adopt-phase6 --no-edit
+
+# Clean up worktree
+git worktree remove /tmp/chama-adopt-phase5
+```
+
+**Conflict handling:**
+- If merge conflicts occur: fall back to sequential execution for the conflicting phases
+- Log in adopt-report: "Phase X and Y attempted parallel, fell back to sequential due to merge conflict"
+
+**When NOT to parallelize:**
+- Phase 1 (Config & Docs) must always run first — other phases depend on `.chama.yml`
+- Phase 3 (Min Tests) depends on Phase 2 (Test Infra) — always sequential
+- Phase 4 (Quality Gates) depends on Phase 3 (Min Tests) — always sequential
+- Custom phases from template: run sequentially unless explicitly tagged `(parallel)`
+
+**Fallback:** If `git worktree` is not available or fails, run all phases sequentially. This is the safe default.
+
+### 1.11 Persist Plan as GitHub Issue
 
 After approval, create a GitHub Issue with label `adopt`:
 
@@ -413,7 +491,7 @@ The issue body should contain:
 - Tools recommended
 - Branch strategy
 
-### 1.10 Initialize Adoption Report
+### 1.12 Initialize Adoption Report
 
 Create `.chama/adopt-report.md` with Discovery results:
 
@@ -441,7 +519,7 @@ The report starts with:
 (to be filled incrementally as phases complete)
 ```
 
-### 1.11 Completion
+### 1.13 Completion
 
 After the plan is persisted and the report initialized:
 

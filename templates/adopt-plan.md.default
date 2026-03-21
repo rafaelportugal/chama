@@ -1,0 +1,90 @@
+# Adoption Plan — {{PROJECT_NAME}}
+
+**Created by:** /chama:adopt
+**Date:** {{DATE}}
+**Stack:** {{STACK}} ({{FRAMEWORK}})
+**Base branch:** {{BASE_BRANCH}}
+
+## Diagnosis Summary
+
+{{DIAGNOSIS}}
+
+## Transformation Phases
+
+<!--
+  Customize this plan:
+  - Add phases: copy a phase block and define objective + scope
+  - Remove phases: delete the block or comment it out
+  - Reorder: move blocks up/down to change execution order
+  - Mark parallel: add (parallel) tag to phases that can run simultaneously
+
+  Dependencies:
+  - Phase 1 (Config & Docs) must run first (other phases depend on .chama.yml)
+  - Phases marked (parallel) run concurrently and merge before dependent phases
+  - Phase 4 (Quality Gates) should run after tests are created
+-->
+
+### Phase 1: Config & Docs
+- Objective: Generate Chama configuration and documentation
+- Scope:
+  - .chama.yml with quality gates
+  - CLAUDE.md, README.md, PROJECT_BRIEF.md
+  - LICENSE (if chosen)
+  - Install recommended plugins
+
+### Phase 2: Test Infrastructure (parallel)
+- Objective: Install and configure test framework
+- Scope:
+  - Install test framework for {{STACK}}
+  - Configure test scripts
+  - Install E2E framework if frontend exists
+
+### Phase 3: Minimum Tests
+- Objective: Reach coverage target ({{COVERAGE_TARGET}}%)
+- Scope:
+  - Unit tests for business logic
+  - Integration tests for API endpoints
+  - E2E tests for critical user flows
+
+### Phase 4: Quality Gates & Hardening
+- Objective: Configure and validate quality gates
+- Scope:
+  - Run gate-check, address CRITICAL findings
+  - Configure quality gates in .chama.yml
+  - Verify all gates pass
+
+### Phase 5: CI Integration (parallel)
+- Objective: Add test step to CI pipeline
+- Scope:
+  - Detect CI provider
+  - Add test command to pipeline
+
+### Phase 6: Hooks Setup (parallel)
+- Objective: Configure pre-commit and PR hooks
+- Scope:
+  - Pre-commit: lint + typecheck
+  - PR gate: full tests + gate-check
+
+<!--
+  Add custom phases below. Examples:
+
+  ### Phase 7: Migrate to TypeScript
+  - Objective: Convert JavaScript files to TypeScript
+  - Scope:
+    - Install TypeScript and configure tsconfig.json
+    - Convert critical modules first
+
+  ### Phase 8: Add API Documentation
+  - Objective: Generate OpenAPI/Swagger docs
+  - Scope:
+    - Install documentation tools
+    - Document all public endpoints
+-->
+
+## Tools Recommended
+
+{{TOOLS}}
+
+## Branch Strategy
+
+{{BRANCH_STRATEGY}}
