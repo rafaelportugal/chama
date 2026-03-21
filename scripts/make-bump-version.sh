@@ -72,6 +72,18 @@ echo ""
 
 LANG_CONFIG=$(yq '.project.language // "pt-BR"' .chama.yml 2>/dev/null)
 
+BUMP_RULES="After the changelog, on a NEW line, output EXACTLY one of these tags:
+BUMP_RECOMMENDATION: patch
+BUMP_RECOMMENDATION: minor
+BUMP_RECOMMENDATION: major
+
+Rules for recommendation:
+- patch: only bug fixes, docs, chore, refactoring — no new user-facing functionality
+- minor: new features, new commands, new configuration options, new files/templates
+- major: breaking changes in public API, config format changes that break existing users, removal of features
+
+This project is a CLI plugin (SDLC orchestrator). Treat new commands, new skill files, and new templates as minor. Treat changes to existing prompt/skill files that don't add features as patch."
+
 if [[ "$LANG_CONFIG" == "pt-BR" ]]; then
   LLM_PROMPT="Analise os commits abaixo e gere um changelog no formato Keep a Changelog (https://keepachangelog.com).
 Categorias: Added, Changed, Fixed, Removed (use apenas as que se aplicam).
@@ -80,6 +92,8 @@ Seja descritivo mas conciso — cada item em 1-2 linhas.
 Agrupe itens relacionados.
 NÃO inclua o header ## [version] - date, apenas as categorias e itens.
 NÃO inclua explicações ou comentários, apenas o changelog.
+
+$BUMP_RULES
 
 Commits:
 $COMMITS"
@@ -91,6 +105,8 @@ Be descriptive but concise — each item in 1-2 lines.
 Group related items.
 Do NOT include the header ## [version] - date, only categories and items.
 Do NOT include explanations or comments, only the changelog.
+
+$BUMP_RULES
 
 Commits:
 $COMMITS"
@@ -117,6 +133,14 @@ else
   CHANGELOG=$(fallback_changelog)
 fi
 
+# ─── Parse LLM recommendation ────────────────────────────────────────────────
+
+RECOMMENDED_BUMP=$(echo "$CHANGELOG" | grep -oP 'BUMP_RECOMMENDATION:\s*\K(patch|minor|major)' | head -1 || true)
+# Remove the recommendation line from changelog
+CHANGELOG=$(echo "$CHANGELOG" | grep -v 'BUMP_RECOMMENDATION:')
+# Trim trailing blank lines
+CHANGELOG=$(echo "$CHANGELOG" | sed -e :a -e '/^$/{ $d; N; ba; }')
+
 echo "Generated changelog:"
 echo "─────────────────────────────────────────"
 echo "$CHANGELOG"
@@ -137,13 +161,36 @@ MAJOR=$(echo "$CLEAN_VERSION" | cut -d. -f1)
 MINOR=$(echo "$CLEAN_VERSION" | cut -d. -f2)
 PATCH=$(echo "$CLEAN_VERSION" | cut -d. -f3)
 
+# Map recommendation to option number
+REC_LABEL=""
+case "$RECOMMENDED_BUMP" in
+  patch) REC_LABEL="1" ;;
+  minor) REC_LABEL="2" ;;
+  major) REC_LABEL="3" ;;
+esac
+
 echo "Bump type:"
-echo "  1) patch → $MAJOR.$MINOR.$((PATCH + 1))"
-echo "  2) minor → $MAJOR.$((MINOR + 1)).0"
-echo "  3) major → $((MAJOR + 1)).0.0"
+if [[ "$REC_LABEL" == "1" ]]; then
+  echo "  1) patch → $MAJOR.$MINOR.$((PATCH + 1))  ← recommended"
+else
+  echo "  1) patch → $MAJOR.$MINOR.$((PATCH + 1))"
+fi
+if [[ "$REC_LABEL" == "2" ]]; then
+  echo "  2) minor → $MAJOR.$((MINOR + 1)).0  ← recommended"
+else
+  echo "  2) minor → $MAJOR.$((MINOR + 1)).0"
+fi
+if [[ "$REC_LABEL" == "3" ]]; then
+  echo "  3) major → $((MAJOR + 1)).0.0  ← recommended"
+else
+  echo "  3) major → $((MAJOR + 1)).0.0"
+fi
 echo "  4) custom version"
 echo ""
-read -r -p "Choose [1/2/3/4]: " BUMP_CHOICE
+
+DEFAULT_CHOICE="${REC_LABEL:-2}"
+read -r -p "Choose [1/2/3/4] (default: $DEFAULT_CHOICE): " BUMP_CHOICE
+BUMP_CHOICE="${BUMP_CHOICE:-$DEFAULT_CHOICE}"
 
 case "$BUMP_CHOICE" in
   1) NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))" ;;
