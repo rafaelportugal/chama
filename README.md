@@ -1,6 +1,6 @@
 # Chama
 
-**SDLC pipeline orchestrator for Claude Code** — Idea -> Spec -> Code -> Review -> Merge.
+**SDLC pipeline orchestrator for Claude Code** — Bootstrap -> Idea -> Spec -> Code -> Review -> Merge.
 
 Chama is a Claude Code plugin that brings a full development lifecycle workflow to any project. Configure once with `.chama.yml` and `CLAUDE.md`, then use slash commands to drive your development.
 
@@ -18,18 +18,15 @@ The name "chama" combines fire with the act of "calling/invoking" — perfect fo
 /plugin install chama@chama
 ```
 
-### 2. Initialize your project
+### 2. Bootstrap or onboard your project
 
 ```
+# Option A: Create a new project from scratch (local-first)
+/chama:new-project
+
+# Option B: Onboard an existing project (GitHub setup)
 /chama:init
 ```
-
-This will:
-- Ask project details (name, repo, tech stack, components, quality gates)
-- Create `.chama.yml` in your project root
-- Generate `CLAUDE.md` if it doesn't exist
-- Set up GitHub labels (`idea`, `spec`, `phase`)
-- Configure GitHub Project
 
 ### 3. Start building
 
@@ -44,11 +41,31 @@ This will:
 
 | Command | Description |
 |---------|-------------|
-| `/chama:init` | Project onboarding — creates `.chama.yml`, labels, project |
+| `/chama:new-project` | Guided bootstrap — idea -> synthesis -> local foundation (`.chama.yml`, `CLAUDE.md`, `README.md`, `LICENSE`, `docs/`) |
+| `/chama:init` | Project onboarding — creates `.chama.yml`, GitHub labels, project board |
 | `/chama:ideas` | Ideas studio — brainstorm with Product Lead + Designer personas |
 | `/chama:architect` | Idea -> Spec + phases (all as GitHub Issues) |
 | `/chama:code` | Execute next Todo task with quality gates |
 | `/chama:review-loop` | Handle PR comments in loop, scoped by Spec |
+| `/chama:gate-check` | Run Critical Gate analysis on working tree or specific commit |
+
+## Command Flow
+
+```
+/chama:new-project -> guided bootstrap: idea -> synthesis -> local foundation
+       | (optional)
+/chama:init        -> onboard project (GitHub labels, board, project number)
+       |
+/chama:ideas       -> brainstorm -> GitHub Issue (label: idea)
+       |
+/chama:architect   -> idea Issue -> Spec Issue + phase Issues
+       |
+/chama:code        -> phase Issue (Todo) -> implement -> PR
+       |
+/chama:review-loop -> PR comments -> fix/respond -> merge
+```
+
+**Note:** `/chama:new-project` is local-first — it generates project foundation on the local filesystem without requiring GitHub. It composes with `/chama:init` (which handles GitHub setup) but does not depend on it.
 
 ## Configuration
 
@@ -66,7 +83,7 @@ project:
 github:
   owner: "owner"
   project_number: 1
-  default_branch: "main"             # "main", "dev", etc.
+  default_branch: "main"
   board_statuses:                    # optional — customize to match your board
     todo: "Todo"
     in_progress: "In Progress"
@@ -95,6 +112,26 @@ personas:
   - name: "Admin"
     description: "System administrator"
 
+# knowledge_paths:                  # optional — feeds domain docs into /chama:architect
+#   - "docs/"
+
+critical_gates:
+  enabled: true
+  fail_mode: open
+  severity_block:
+    - CRITICAL
+    - HIGH
+  scan_points:
+    - pre_commit
+    - pre_merge
+
+versioning:
+  enabled: true
+  strategy: "spec-lifecycle"
+  files:
+    - path: ".claude-plugin/plugin.json"
+      jq_filter: ".version"
+
 business_segment: "SaaS"
 ```
 
@@ -106,6 +143,33 @@ CHAMA_OWNER="owner"
 CHAMA_PROJECT_NUMBER="1"
 CHAMA_DEFAULT_BRANCH="main"
 ```
+
+## Features
+
+### Knowledge Paths
+
+Add `knowledge_paths` to `.chama.yml` to feed domain docs (`.md`, `.yml`, `.yaml`, `.txt`) into the architect. Progressive limits apply:
+- **10 files / 100KB**: read all, no alerts
+- **11-15 files / 101-200KB**: read all + warning
+- **>15 files / >200KB**: skip with error
+
+### Custom Spec Template
+
+Override the default spec template by placing your own at `.chama/templates/spec.md`. The architect will use it instead of the built-in default.
+
+### Critical Gate
+
+Pre-commit and pre-merge safety checks for destructive operations. Scans diffs for database drops, secret exposure, infra changes, and ~40 built-in rules across 6 domains. Run standalone with `/chama:gate-check`.
+
+### Versioning
+
+Manual bump with LLM-generated changelog:
+
+```bash
+make bump-version
+```
+
+Shows commits since last bump, generates a categorized changelog via `claude --print`, asks for bump type (patch/minor/major), and commits.
 
 ## GitHub Issues as Storage
 
@@ -122,6 +186,7 @@ Instead of local `.md` files, ideas and Specs live as GitHub Issues:
 /chama:ideas      -> creates Issue label:idea
 /chama:architect  -> reads idea Issue -> creates spec + phase Issues
 /chama:code       -> finds phase Issue status:Todo -> implements, creates PR
+/chama:review-loop -> handles PR comments -> merges -> moves to Done
 ```
 
 ## Headless / Compose Mode
@@ -133,7 +198,7 @@ For automated execution without manual intervention.
 Add the `chama-compose` function to your `~/.zshrc` (or `~/.bashrc`):
 
 ```bash
-# ─── Chama SDLC Pipeline ─────────────────────────────────────────────────────
+# --- Chama SDLC Pipeline ---
 _chama_find_plugin() {
   local root_dir
   root_dir="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -217,27 +282,39 @@ chama/
 │   ├── plugin.json              # Plugin manifest
 │   └── marketplace.json         # Marketplace definition
 ├── skills/                      # Slash commands (interactive)
-│   ├── init/SKILL.md
-│   ├── ideas/SKILL.md
-│   ├── architect/SKILL.md
-│   ├── code/SKILL.md
-│   └── review-loop/SKILL.md
+│   ├── new-project/SKILL.md     # Guided project bootstrap
+│   ├── init/SKILL.md            # Project onboarding
+│   ├── ideas/SKILL.md           # Ideas studio
+│   ├── architect/SKILL.md       # Idea -> Spec + phases
+│   ├── code/SKILL.md            # Task executor
+│   ├── review-loop/SKILL.md     # PR comment handler
+│   └── gate-check/SKILL.md      # Critical Gate standalone
 ├── workflow/                    # Headless prompts + scripts
 │   ├── prompt-compose-coder.md
 │   ├── prompt-compose-simplify.md
 │   ├── prompt-commit-reviewer.md
 │   ├── prompt-pr-reviewer.md
-│   ├── prompt-generate-specs.md
+│   ├── prompt-review-loop.md
 │   └── scripts/
 ├── agent/                       # Docker runtime
 │   ├── Dockerfile
 │   ├── docker-compose.yml
 │   └── README.md
-├── templates/                   # Templates for /chama:init
+├── templates/                   # Templates for bootstrap/init
 │   ├── chama.yml.template
-│   └── CLAUDE.md.template
+│   ├── CLAUDE.md.template
+│   ├── PROJECT_BRIEF.md.template
+│   ├── README.md.template
+│   ├── spec.md.default
+│   └── critical-gates.yml.default
 ├── scripts/
-│   └── setup-github-project.sh
+│   ├── bump-version.sh          # Version bump engine
+│   ├── make-bump-version.sh     # Interactive bump with LLM changelog
+│   ├── run-critical-gate.sh     # Critical Gate engine
+│   ├── resolve-spec-template.sh # Spec template resolver
+│   ├── sync-board-statuses.sh   # Board status validator
+│   └── setup-github-project.sh  # GitHub project setup
+├── Makefile                     # make bump-version
 └── LICENSE
 ```
 
