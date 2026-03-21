@@ -48,10 +48,10 @@ if git branch --list chama-adopt | grep -q chama-adopt 2>/dev/null || git branch
 fi
 
 if [ "$ADOPT_BRANCH_EXISTS" = "true" ]; then
-  # Read last completed phase from adopt-report
+  # Read last completed phase from adopt-report (always from branch ref, not working tree)
   LAST_PHASE=""
-  if [ -f ".chama/adopt-report.md" ]; then
-    LAST_PHASE=$(grep -oP '### Phase \K\d+' .chama/adopt-report.md 2>/dev/null | tail -1)
+  if git show chama-adopt:.chama/adopt-report.md >/dev/null 2>&1; then
+    LAST_PHASE=$(git show chama-adopt:.chama/adopt-report.md 2>/dev/null | grep -oP '### Phase \K\d+' | tail -1)
   elif git show origin/chama-adopt:.chama/adopt-report.md >/dev/null 2>&1; then
     LAST_PHASE=$(git show origin/chama-adopt:.chama/adopt-report.md 2>/dev/null | grep -oP '### Phase \K\d+' | tail -1)
   fi
@@ -830,13 +830,12 @@ echo "Coverage target: ${COVERAGE_TARGET}%"
 
 #### Measure current coverage
 
-Parse real coverage from reports (do NOT run test suites to measure — use existing reports or run with coverage flag):
+Run tests with coverage instrumentation and parse the result:
 
 ```bash
 measure_coverage() {
   case "$STACK" in
     node)
-      # Run tests with coverage, then parse
       npm test -- --coverage --coverageReporters=json-summary 2>/dev/null
       jq -r '.total.statements.pct // 0' coverage/coverage-summary.json 2>/dev/null || echo "0"
       ;;
@@ -860,13 +859,18 @@ measure_coverage() {
     *) echo "0" ;;
   esac
 }
+
+# Float comparison helper (uses awk instead of bc for portability)
+coverage_meets_target() {
+  awk "BEGIN {exit !($1 >= $2)}"
+}
 ```
 
 #### Skip check
 
 ```bash
 CURRENT_COVERAGE=$(measure_coverage)
-if (( $(echo "$CURRENT_COVERAGE >= $COVERAGE_TARGET" | bc -l 2>/dev/null || echo 0) )); then
+if coverage_meets_target "$CURRENT_COVERAGE" "$COVERAGE_TARGET"; then
   echo "✓ Coverage already at ${CURRENT_COVERAGE}% (target: ${COVERAGE_TARGET}%). Skipping Phase 3."
   # Skip to Phase 4
 fi
@@ -882,35 +886,52 @@ git pull origin chama-adopt
 git checkout -b chama-adopt-phase3
 ```
 
-Execute the coverage loop (max 5 iterations):
+Execute the coverage loop (max 5 iterations). Each iteration: identify uncovered modules → generate tests → validate → commit → re-measure.
 
-```
+```bash
 MAX_ITERATIONS=5
 ITERATION=1
+# Reuse CURRENT_COVERAGE from skip check (avoid redundant first measurement)
 
 while [ $ITERATION -le $MAX_ITERATIONS ]; do
-  CURRENT_COVERAGE=$(measure_coverage)
+  # Re-measure only from iteration 2+ (iteration 1 reuses the skip check value)
+  if [ $ITERATION -gt 1 ]; then
+    CURRENT_COVERAGE=$(measure_coverage)
+  fi
+
   echo ""
   echo "Coverage loop iteration $ITERATION:"
   echo "  Current: ${CURRENT_COVERAGE}% | Target: ${COVERAGE_TARGET}%"
 
-  if (( $(echo "$CURRENT_COVERAGE >= $COVERAGE_TARGET" | bc -l) )); then
+  if coverage_meets_target "$CURRENT_COVERAGE" "$COVERAGE_TARGET"; then
     echo "  ✓ Target reached: ${CURRENT_COVERAGE}% >= ${COVERAGE_TARGET}%"
     break
   fi
 
+  # The LLM agent should:
   # 1. Identify uncovered modules (files with 0% or lowest coverage)
   # 2. Generate tests for the highest-impact uncovered modules
-  # 3. Run tests and handle failures
+  # 3. Run unit tests and handle failures (see "Handling test failures" below)
+  # 4. Commit this iteration's tests for safety (see below)
 
   ITERATION=$((ITERATION + 1))
 done
 
-if (( $(echo "$CURRENT_COVERAGE < $COVERAGE_TARGET" | bc -l) )); then
+if ! coverage_meets_target "$CURRENT_COVERAGE" "$COVERAGE_TARGET"; then
   echo "⚠️ Target not reached after $MAX_ITERATIONS iterations."
   echo "  Current: ${CURRENT_COVERAGE}% | Target: ${COVERAGE_TARGET}%"
   echo "  Adding to Improvement Backlog in adopt-report."
 fi
+```
+
+**Commit per iteration** — after each iteration, commit the tests created so far. This protects against interruption and makes the PR reviewable per iteration:
+
+```bash
+# After each iteration's tests are validated:
+git add tests/ e2e/ __tests__/ 2>/dev/null || true
+find . -name "*_test.go" -not -path "*/vendor/*" -exec git add {} \; 2>/dev/null || true
+[ -d "src/test/" ] && git add src/test/
+git commit -m "chore: adopt phase 3 — coverage loop iteration $ITERATION (${CURRENT_COVERAGE}%)"
 ```
 
 #### Test creation strategy (per iteration)
