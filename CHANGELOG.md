@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.7.5] - 2026-03-21
+
+### Corrigido
+- Reescrita dos blocos de avaliação em docs/CI para eliminar avisos de sintaxe ambígua
+
 ## [1.7.4] - 2026-03-21
 
 ### Fixed
