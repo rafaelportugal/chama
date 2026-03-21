@@ -403,4 +403,249 @@ After the plan is persisted and the report initialized:
 3. Announce: "Discovery completo. Plano de transformação criado."
 4. Show next step: "Execute `/chama:adopt` novamente para iniciar a adaptação (Phase 2 da Spec), ou rode `/chama:code <issue-number>` para as phases individuais."
 
-**STOP here for Phase 1 of the Spec.** Tool recommendations and adaptation execution are handled by subsequent Spec phases.
+---
+
+## Phase 2: Tool Recommendations + Config & Docs Adaptation
+
+### 2.1 Tool Recommendations
+
+After Discovery, present tool recommendations based on the detected stack. The developer chooses what to install.
+
+**Base comum (toda stack):**
+- Plugin LSP da linguagem (obrigatório para code intelligence)
+- GitHub ou GitLab (integração com repositório)
+- Context7 (docs versionadas)
+
+#### Curadoria por stack
+
+##### Node / React / Next
+
+| Recorte | Plugins & Skills sugeridos | Quality gates |
+|---|---|---|
+| **Frontend (React/Next)** | `typescript-lsp`, `frontend-design`, `vercel-react-best-practices`, `playwright-best-practices`, `context7` | rápido: `npm run lint && npm run typecheck && npm test` · completo: `npm run build && npx playwright test` |
+| **Next.js App Router / RSC** | `typescript-lsp`, `next-best-practices`, `vercel-react-best-practices`, `context7` | rápido: `npm run lint && npm run typecheck` · completo: `npm run build && npx playwright test` |
+| **Node backend (Express/Fastify/NestJS)** | `typescript-lsp`, `nodejs-backend-patterns`, `api-design-principles`, `context7` | rápido: `npm run lint && npm run typecheck && npm test` · completo: `npm run build && npm run test:integration` |
+
+##### Python
+
+| Recorte | Plugins & Skills sugeridos | Quality gates |
+|---|---|---|
+| **FastAPI** | `pyright-lsp`, `fastapi-expert`, `python-performance-optimization`, `context7` | rápido: `ruff check . && mypy . && pytest -q` · completo: `pytest -q --cov && pytest -m integration` |
+| **Django / DRF** | `pyright-lsp`, `django-expert`, `context7` | rápido: `ruff check . && mypy . && pytest -q` · completo: `pytest --reuse-db && python manage.py check --deploy` |
+| **Workers / data pipeline** | `pyright-lsp`, `python-performance-optimization` | rápido: `ruff check . && mypy . && pytest -q` · completo: `pytest --cov` |
+
+##### Go
+
+| Recorte | Plugins & Skills sugeridos | Quality gates |
+|---|---|---|
+| **Go service** | `gopls-lsp`, `context7` | rápido: `go test ./... && golangci-lint run` · completo: `go vet ./... && go test -race ./...` |
+| **Go with Gin/Fiber/Echo/gRPC** | `gopls-lsp` | rápido: `go test ./... && golangci-lint run` · completo: `go test -race ./...` + smoke tests |
+
+##### C# / .NET
+
+| Recorte | Plugins & Skills sugeridos | Quality gates |
+|---|---|---|
+| **ASP.NET Core** | `csharp-lsp`, `dotnet-skills`, `context7` | rápido: `dotnet format --verify-no-changes && dotnet build -warnaserror && dotnet test` · completo: `dotnet test --collect:"XPlat Code Coverage"` |
+| **.NET enterprise / EF Core** | `csharp-lsp`, `dotnet-skills` | rápido: gates base + arch tests · completo: coverage + integration |
+
+##### Rust
+
+| Recorte | Plugins & Skills sugeridos | Quality gates |
+|---|---|---|
+| **Rust web / backend** | `rust-analyzer-lsp`, `rust-skills`, `context7` | rápido: `cargo fmt --check && cargo clippy -- -D warnings && cargo test` · completo: `cargo test --workspace && cargo audit` |
+| **Rust CLI / libs** | `rust-analyzer-lsp`, `rust-skills` | rápido: `cargo fmt --check && cargo clippy -- -D warnings && cargo test` · completo: `cargo test --workspace && cargo doc --no-deps` |
+
+##### Java / Spring
+
+| Recorte | Plugins & Skills sugeridos | Quality gates |
+|---|---|---|
+| **Spring Boot MVC / Data JPA** | `jdtls-lsp`, `spring-boot-engineer`, `context7` | rápido: `./mvnw test && ./mvnw checkstyle:check` · completo: `./mvnw verify` |
+| **Spring WebFlux / Cloud** | `jdtls-lsp`, `spring-boot-engineer` | rápido: `./mvnw test && ./mvnw checkstyle:check` · completo: `./mvnw verify` + reactive tests |
+
+### 2.2 Recommendation UX
+
+Present recommendations and let the developer choose:
+
+```text
+📦 Recommended tools for your stack (<STACK> + <FRAMEWORK>):
+
+  Plugins (Claude Code):
+    ✓ <lsp-plugin> (LSP — code intelligence)
+    ✓ context7 (docs versionadas)
+    ○ <plugin-1> (<description>)
+    ○ <plugin-2> (<description>)
+
+  Skills (best practices):
+    ○ <skill-1>
+    ○ <skill-2>
+
+  Quality gates for .chama.yml:
+    Quick: <quick gates>
+    Full:  <full gates>
+
+Install selected plugins? [Y/n/select]:
+```
+
+**Rules:**
+- `Y` — install all recommended plugins
+- `n` — skip plugin installation entirely
+- `select` — present numbered list, developer picks which ones
+- Quality gates are always suggested for `.chama.yml` regardless of plugin choice
+
+### 2.3 Branch Setup
+
+Create the base branch for adoption:
+
+```bash
+BASE_BRANCH="<confirmed branch from Discovery>"
+git checkout "$BASE_BRANCH"
+git pull origin "$BASE_BRANCH"
+git checkout -b chama-adopt
+git push -u origin chama-adopt
+```
+
+For the Config & Docs phase, create a phase branch:
+
+```bash
+git checkout -b chama-adopt-phase1
+```
+
+### 2.4 Adaptation Phase 1: Config & Docs
+
+Generate all Chama configuration and documentation artifacts. This follows the same patterns as `/chama:new-project` but adapted for existing repos.
+
+**Golden Rule reminder:** Do NOT modify any application code. Only create/update documentation and configuration files.
+
+#### 2.4.1 Generate `.chama.yml`
+
+Create `.chama.yml` using the Discovery results:
+- `project.name`, `project.description`, `project.repo` — from repo metadata
+- `tech_stack.summary` — from stack detection
+- `tech_stack.components[]` — from monorepo detection or single component
+- Quality gates — from the curadoria table matching the detected stack (quick gates)
+- `personas`, `business_segment` — ask the developer if not inferrable
+- `critical_gates` — include default configuration
+
+If `.chama.yml` already exists: **merge mode** — read existing, propose only additions/updates, ask for confirmation.
+
+#### 2.4.2 Generate `CLAUDE.md`
+
+Create a contextual `CLAUDE.md` following the same rules as `/chama:new-project` Step 4.2:
+- Project name, description, tech stack
+- Project structure based on actual directory tree
+- Quality gates from `.chama.yml`
+- Development workflow with Chama commands
+- Coding conventions appropriate to the detected stack
+
+If `CLAUDE.md` already exists: **merge mode** — compare sections, propose adding only new information.
+
+#### 2.4.3 Generate `README.md`
+
+Create/update `README.md` following the same rules as `/chama:new-project` Step 4.7:
+- Quick Start with real commands based on the stack
+- Stack section
+- Project structure
+- Development section with Chama workflow
+
+If `README.md` already exists: **merge mode** — compare sections, propose adding only new sections.
+
+#### 2.4.4 Generate `docs/PROJECT_BRIEF.md`
+
+```bash
+mkdir -p docs
+```
+
+Create `docs/PROJECT_BRIEF.md` with synthesis fields derived from Discovery results.
+
+If already exists: **merge mode** — show diff, ask to keep or replace.
+
+#### 2.4.5 Generate `LICENSE`
+
+If `LICENSE` does not exist, ask the developer for license preference (same 5 options as `/chama:new-project`):
+
+1. **MIT** — permissiva, uso livre
+2. **Apache 2.0** — permissiva + patentes
+3. **GPL v3** — copyleft
+4. **Proprietary** — all rights reserved
+5. **Nenhuma** — não criar
+
+If `LICENSE` already exists: skip.
+
+#### 2.4.6 Copy spec template
+
+```bash
+mkdir -p .chama/templates
+```
+
+Copy the default spec template if `.chama/templates/spec.md` does not exist (same logic as `/chama:new-project` Step 4.4).
+
+#### 2.4.7 Install accepted plugins
+
+Install plugins that the developer accepted in Step 2.2:
+
+```bash
+# For each accepted plugin, suggest installation command
+# The developer must run these manually as plugin installation requires interactive confirmation
+echo "Install the following plugins:"
+echo "  /plugin install <plugin-name>"
+```
+
+Note: Plugin installation is interactive — the skill cannot install them automatically. Present the commands for the developer to run.
+
+### 2.5 Commit, PR, and Update Report
+
+After all Config & Docs artifacts are generated:
+
+```bash
+# Stage only documentation and config files (Golden Rule)
+for f in .chama.yml CLAUDE.md README.md docs/PROJECT_BRIEF.md LICENSE .chama/ .gitignore; do
+  [ -e "$f" ] && git add "$f"
+done
+
+git commit -m "chore: adopt phase 1 — config & docs"
+git push -u origin chama-adopt-phase1
+```
+
+Create PR for this phase:
+
+```bash
+gh pr create \
+  --base chama-adopt \
+  --title "adopt: Phase 1 — Config & Docs" \
+  --body "## Adoption Phase 1: Config & Docs
+
+Part of the adoption plan: #<adopt-issue-number>
+
+### Created/Updated
+- .chama.yml (with quality gates)
+- CLAUDE.md
+- README.md
+- docs/PROJECT_BRIEF.md
+- LICENSE (if chosen)
+- .chama/templates/spec.md
+
+### Plugins Recommended
+<list of recommended plugins with install commands>"
+```
+
+Update the adoption report:
+
+```markdown
+### Phase 1: Config & Docs
+- Created: <list of files>
+- Updated: <list of updated files>
+- Quality gates configured: <quick + full>
+- Plugins recommended: <list>
+- License: <chosen license or "none">
+```
+
+### 2.6 Completion
+
+After the PR is created:
+
+1. Show the PR URL
+2. Show updated adopt-report.md
+3. Announce: "Phase 1 (Config & Docs) concluída. PR aberto para chama-adopt."
+4. Show next step: "Rode `/chama:code <phase-3-issue>` para executar a fase de Test Infrastructure, ou rode `/chama:review-loop <pr-number>` para revisar e mergear este PR."
+
+**STOP here for Phase 2 of the Spec.** Test infrastructure, minimum tests, and quality gates hardening are handled by Phase 3.
