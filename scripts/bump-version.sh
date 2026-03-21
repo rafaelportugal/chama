@@ -3,14 +3,38 @@ set -euo pipefail
 
 # ─── Bump Version ────────────────────────────────────────────────────────────
 # Updates the version field in all files listed in .chama.yml versioning.files.
-# Usage: scripts/bump-version.sh <new-version>
+# Optionally prepends an entry to CHANGELOG.md.
+#
+# Usage: scripts/bump-version.sh <new-version> [--changelog "message"]
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─── Parse arguments ─────────────────────────────────────────────────────────
+
 NEW_VERSION="${1:-}"
+CHANGELOG_MSG=""
+
+shift || true
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --changelog)
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        echo "ERROR: --changelog requires a non-empty message argument." >&2
+        echo "Usage: $0 <new-version> [--changelog \"message\"]" >&2
+        exit 1
+      fi
+      CHANGELOG_MSG="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+  esac
+done
 
 if [[ -z "$NEW_VERSION" ]]; then
-  echo "Usage: $0 <new-version>" >&2
-  echo "Example: $0 1.3.0-draft.0" >&2
+  echo "Usage: $0 <new-version> [--changelog \"message\"]" >&2
+  echo "Example: $0 1.6.0 --changelog \"### Added\n- New feature\"" >&2
   exit 1
 fi
 
@@ -77,12 +101,42 @@ for i in $(seq 0 $((FILE_COUNT - 1))); do
   CHANGED=true
 done
 
+# ─── Update CHANGELOG.md ────────────────────────────────────────────────────
+
+if [[ -n "$CHANGELOG_MSG" ]]; then
+  if [[ ! -f "CHANGELOG.md" ]]; then
+    echo "ERROR: --changelog was provided but CHANGELOG.md does not exist." >&2
+    echo "Create a CHANGELOG.md with a '# Changelog' header before retrying." >&2
+    exit 1
+  fi
+
+  # Skip if entry already exists (idempotent)
+  if grep -q "^## \[$NEW_VERSION\] - " CHANGELOG.md; then
+    echo "  CHANGELOG.md already has entry for $NEW_VERSION, skipping."
+  else
+    TODAY=$(date +%Y-%m-%d)
+    TMP_FILE=$(mktemp)
+    head -1 CHANGELOG.md > "$TMP_FILE"
+    printf '\n## [%s] - %s\n\n%s\n' "$NEW_VERSION" "$TODAY" "$CHANGELOG_MSG" >> "$TMP_FILE"
+    tail -n +2 CHANGELOG.md >> "$TMP_FILE"
+    mv "$TMP_FILE" CHANGELOG.md
+    echo "  Updated CHANGELOG.md with entry for $NEW_VERSION"
+    CHANGED=true
+  fi
+fi
+
+# ─── Commit ──────────────────────────────────────────────────────────────────
+
 if [[ "$CHANGED" == "true" ]]; then
-  # Stage and commit only the versioned files
+  # Stage versioned files
   for i in $(seq 0 $((FILE_COUNT - 1))); do
     FILE_PATH=$(yq ".versioning.files[$i].path" .chama.yml)
     git add "$FILE_PATH"
   done
+  # Stage changelog if updated
+  if [[ -n "$CHANGELOG_MSG" ]] && [[ -f "CHANGELOG.md" ]]; then
+    git add CHANGELOG.md
+  fi
   git commit -m "chore: bump version to $NEW_VERSION"
   echo "Committed: chore: bump version to $NEW_VERSION"
 else
