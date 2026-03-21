@@ -432,6 +432,7 @@ After Discovery, present tool recommendations based on the detected stack. The d
 |---|---|---|
 | **FastAPI** | `pyright-lsp`, `fastapi-expert`, `python-performance-optimization`, `context7` | rápido: `ruff check . && mypy . && pytest -q` · completo: `pytest -q --cov && pytest -m integration` |
 | **Django / DRF** | `pyright-lsp`, `django-expert`, `context7` | rápido: `ruff check . && mypy . && pytest -q` · completo: `pytest --reuse-db && python manage.py check --deploy` |
+| **Flask** | `pyright-lsp`, `python-performance-optimization`, `context7` | rápido: `ruff check . && mypy . && pytest -q` · completo: `pytest -q --cov` |
 | **Workers / data pipeline** | `pyright-lsp`, `python-performance-optimization` | rápido: `ruff check . && mypy . && pytest -q` · completo: `pytest --cov` |
 
 ##### Go
@@ -500,19 +501,47 @@ Create the base branch for adoption:
 BASE_BRANCH="<confirmed branch from Discovery>"
 git checkout "$BASE_BRANCH"
 git pull origin "$BASE_BRANCH"
-git checkout -b chama-adopt
+
+# Check if chama-adopt branch already exists
+if git branch --list chama-adopt | grep -q chama-adopt || git branch -r --list origin/chama-adopt | grep -q chama-adopt; then
+  echo "Branch chama-adopt already exists."
+  echo "Options: [reuse] existing / [reset] from $BASE_BRANCH / [cancel]"
+  # Ask developer — if reuse: checkout; if reset: delete and recreate; if cancel: stop
+fi
+
+git checkout -b chama-adopt 2>/dev/null || git checkout chama-adopt
 git push -u origin chama-adopt
 ```
 
 For the Config & Docs phase, create a phase branch:
 
 ```bash
-git checkout -b chama-adopt-phase1
+git checkout -b chama-adopt-phase1 2>/dev/null || git checkout chama-adopt-phase1
 ```
 
 ### 2.4 Adaptation Phase 1: Config & Docs
 
 Generate all Chama configuration and documentation artifacts. This follows the same patterns as `/chama:new-project` but adapted for existing repos.
+
+#### Locate Chama templates
+
+Use the same discovery chain as `/chama:new-project` Step 4:
+
+```bash
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+CHAMA_TEMPLATES=""
+if [ -d "$ROOT_DIR/templates" ] && [ -f "$ROOT_DIR/templates/chama.yml.template" ]; then
+  CHAMA_TEMPLATES="$ROOT_DIR/templates"
+elif [ -d "chama/templates" ]; then
+  CHAMA_TEMPLATES="chama/templates"
+elif [ -d "$HOME/.claude/plugins/chama/templates" ]; then
+  CHAMA_TEMPLATES="$HOME/.claude/plugins/chama/templates"
+elif CACHE_HIT=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 4 -name "chama.yml.template" -printf '%h' 2>/dev/null | head -1) && [ -n "$CACHE_HIT" ]; then
+  CHAMA_TEMPLATES="$CACHE_HIT"
+fi
+```
+
+Read templates as structural reference (if found): `chama.yml.template`, `CLAUDE.md.template`, `PROJECT_BRIEF.md.template`, `README.md.template`.
 
 **Golden Rule reminder:** Do NOT modify any application code. Only create/update documentation and configuration files.
 
@@ -571,7 +600,13 @@ If `LICENSE` does not exist, ask the developer for license preference (same 5 op
 
 If `LICENSE` already exists: skip.
 
-#### 2.4.6 Copy spec template
+#### 2.4.6 Update `.gitignore`
+
+Follow the same rules as `/chama:new-project` Step 4.6:
+- If `.gitignore` does not exist: generate one appropriate to the detected stack, always including `.chama/progress/` and `.chama/reviews/`
+- If `.gitignore` already exists: append only `.chama/` entries if not already present
+
+#### 2.4.7 Copy spec template
 
 ```bash
 mkdir -p .chama/templates
@@ -579,7 +614,7 @@ mkdir -p .chama/templates
 
 Copy the default spec template if `.chama/templates/spec.md` does not exist (same logic as `/chama:new-project` Step 4.4).
 
-#### 2.4.7 Install accepted plugins
+#### 2.4.8 Install accepted plugins
 
 Install plugins that the developer accepted in Step 2.2:
 
@@ -645,7 +680,7 @@ After the PR is created:
 
 1. Show the PR URL
 2. Show updated adopt-report.md
-3. Announce: "Phase 1 (Config & Docs) concluída. PR aberto para chama-adopt."
-4. Show next step: "Rode `/chama:code <phase-3-issue>` para executar a fase de Test Infrastructure, ou rode `/chama:review-loop <pr-number>` para revisar e mergear este PR."
+3. Announce: "Adoption Phase 1 (Config & Docs) concluída. PR aberto para chama-adopt."
+4. Show next step: "Rode `/chama:review-loop <pr-number>` para revisar e mergear este PR. Depois, rode `/chama:adopt` novamente para executar as próximas phases (Test Infrastructure, Minimum Tests, Quality Gates)."
 
-**STOP here for Phase 2 of the Spec.** Test infrastructure, minimum tests, and quality gates hardening are handled by Phase 3.
+**STOP here.** The remaining adoption phases (Test Infrastructure, Minimum Tests, Quality Gates & Hardening) will be added to this skill in a future update.
