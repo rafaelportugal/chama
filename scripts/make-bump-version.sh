@@ -45,7 +45,7 @@ echo ""
 
 # ─── Collect commits since last bump ────────────────────────────────────────
 
-LAST_BUMP_COMMIT=$(git log --oneline --grep="chore: bump version" -1 --format="%H" 2>/dev/null || true)
+LAST_BUMP_COMMIT=$(git log --first-parent --grep="chore: bump version" -1 --format="%H" 2>/dev/null || true)
 
 if [[ -n "$LAST_BUMP_COMMIT" ]]; then
   COMMITS=$(git log --oneline "${LAST_BUMP_COMMIT}..HEAD" 2>/dev/null || true)
@@ -109,6 +109,13 @@ echo "────────────────────────�
 echo "$CHANGELOG"
 echo "─────────────────────────────────────────"
 echo ""
+
+# ─── Verify interactive terminal ─────────────────────────────────────────────
+
+if [[ ! -t 0 ]]; then
+  echo "ERROR: This script requires an interactive terminal." >&2
+  exit 1
+fi
 
 # ─── Ask for bump type ───────────────────────────────────────────────────────
 
