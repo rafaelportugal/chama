@@ -354,9 +354,23 @@ PLAN_TEMPLATE=""
 if [ -f ".chama/templates/adopt-plan.md" ]; then
   PLAN_TEMPLATE=".chama/templates/adopt-plan.md"
   echo "Custom adoption plan template found: $PLAN_TEMPLATE"
-elif [ -n "$CHAMA_TEMPLATES" ] && [ -f "$CHAMA_TEMPLATES/adopt-plan.md.default" ]; then
-  PLAN_TEMPLATE="$CHAMA_TEMPLATES/adopt-plan.md.default"
-  echo "Using default adoption plan template"
+else
+  # Resolve Chama templates path (same chain as new-project/adopt Phase 2)
+  ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  _TMPL=""
+  if [ -f "$ROOT_DIR/templates/adopt-plan.md.default" ]; then
+    _TMPL="$ROOT_DIR/templates/adopt-plan.md.default"
+  elif [ -d "chama/templates" ] && [ -f "chama/templates/adopt-plan.md.default" ]; then
+    _TMPL="chama/templates/adopt-plan.md.default"
+  elif [ -f "$HOME/.claude/plugins/chama/templates/adopt-plan.md.default" ]; then
+    _TMPL="$HOME/.claude/plugins/chama/templates/adopt-plan.md.default"
+  else
+    _TMPL=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 5 -name "adopt-plan.md.default" -printf '%h/%f\n' 2>/dev/null | sort -V | tail -1)
+  fi
+  if [ -n "$_TMPL" ]; then
+    PLAN_TEMPLATE="$_TMPL"
+    echo "Using default adoption plan template: $PLAN_TEMPLATE"
+  fi
 fi
 ```
 
@@ -448,8 +462,9 @@ git worktree remove /tmp/chama-adopt-phase5
 ```
 
 **Conflict handling:**
-- If merge conflicts occur: fall back to sequential execution for the conflicting phases
+- If merge conflicts occur: abort the merge (`git merge --abort`), clean up worktree (`git worktree remove /tmp/chama-adopt-phase5 2>/dev/null; git worktree prune`), then fall back to sequential execution for the conflicting phases
 - Log in adopt-report: "Phase X and Y attempted parallel, fell back to sequential due to merge conflict"
+- Recovery: if orphaned worktrees exist from a previous interrupted run, `git worktree prune` cleans them up
 
 **When NOT to parallelize:**
 - Phase 1 (Config & Docs) must always run first — other phases depend on `.chama.yml`
