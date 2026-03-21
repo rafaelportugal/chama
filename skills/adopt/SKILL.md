@@ -1124,7 +1124,291 @@ Update adopt-report:
 - Findings deferred to Improvement Backlog: <count>
 ```
 
-### 3.5 Finalization
+### 3.5 Adaptation Phase 5: CI Integration
+
+**Skip if no CI provider is detected.**
+
+Create phase branch:
+
+```bash
+git checkout chama-adopt
+git pull origin chama-adopt
+git checkout -b chama-adopt-phase5
+```
+
+#### 3.5.1 Detect CI provider
+
+```bash
+CI_PROVIDER=""
+CI_FILE=""
+
+if [ -d ".github/workflows" ]; then
+  CI_PROVIDER="github-actions"
+  # Find the main workflow (prefer ci.yml, then the first yml)
+  if [ -f ".github/workflows/ci.yml" ] || [ -f ".github/workflows/ci.yaml" ]; then
+    CI_FILE=$(ls .github/workflows/ci.{yml,yaml} 2>/dev/null | head -1)
+  else
+    CI_FILE=$(ls .github/workflows/*.{yml,yaml} 2>/dev/null | head -1)
+  fi
+elif [ -f ".gitlab-ci.yml" ]; then
+  CI_PROVIDER="gitlab-ci"
+  CI_FILE=".gitlab-ci.yml"
+elif [ -f "Jenkinsfile" ]; then
+  CI_PROVIDER="jenkins"
+  CI_FILE="Jenkinsfile"
+elif [ -f ".circleci/config.yml" ]; then
+  CI_PROVIDER="circleci"
+  CI_FILE=".circleci/config.yml"
+fi
+
+if [ -z "$CI_PROVIDER" ]; then
+  echo "No CI provider detected. Skipping CI integration."
+  echo "Recommendation: set up GitHub Actions or your preferred CI."
+  # Document in adopt-report and skip to next phase
+  # Add to adopt-report: "Phase 5: CI Integration — skipped (no CI provider detected)"
+  # SKIP to Phase 6 (Hooks Setup)
+fi
+
+# Guard: do not proceed without a valid CI file
+if [ -z "$CI_FILE" ]; then
+  echo "No CI workflow file found. Skipping CI integration."
+  # SKIP to Phase 6
+fi
+
+echo "CI provider: $CI_PROVIDER"
+echo "CI file: $CI_FILE"
+```
+
+#### 3.5.2 Add test step to CI
+
+**Golden Rule: modify ONLY CI configuration files.** Do not touch application code.
+
+Read the existing CI file, then add a test step. The test command depends on the detected stack:
+
+| Stack | Test command for CI |
+|---|---|
+| Node | `npm test` |
+| Python | `pytest` |
+| Go | `go test ./...` |
+| C# | `dotnet test` |
+| Rust | `cargo test` |
+| Java | `./mvnw test` |
+
+**Per CI provider:**
+
+**GitHub Actions** — Add a `test` job or step to the existing workflow:
+
+```yaml
+# Add to existing workflow (do NOT replace the file)
+- name: Run tests
+  run: <test-command>
+```
+
+If the workflow already has a test step (grep for `npm test`, `pytest`, `go test`, etc.): skip, document as already configured.
+
+**GitLab CI** — Add a `test` stage:
+
+```yaml
+test:
+  stage: test
+  script:
+    - <test-command>
+```
+
+**Jenkins** — Add a test stage to the pipeline:
+
+```groovy
+stage('Test') {
+  steps {
+    sh '<test-command>'
+  }
+}
+```
+
+**CircleCI** — Add a test job:
+
+```yaml
+test:
+  docker:
+    - image: <appropriate-image>
+  steps:
+    - checkout
+    - run: <test-command>
+```
+
+**Important:** Read the existing CI file first and ADD the test step in the appropriate location. Do NOT rewrite the entire file. Preserve all existing steps, jobs, and configuration.
+
+#### 3.5.3 Commit and PR
+
+```bash
+# Stage only CI files (Golden Rule)
+git add "$CI_FILE"
+git commit -m "chore: adopt phase 5 — CI test integration"
+git push -u origin chama-adopt-phase5
+
+gh pr create \
+  --base chama-adopt \
+  --title "adopt: Phase 5 — CI Test Integration" \
+  --body "## Adoption Phase 5: CI Integration
+
+Part of the adoption plan: #<adopt-issue-number>
+
+### CI Provider
+- Provider: $CI_PROVIDER
+- File: $CI_FILE
+
+### Changes
+- Added test step: <test-command>
+- Existing CI configuration preserved"
+```
+
+#### Update adopt-report
+
+```markdown
+### Phase 5: CI Integration
+- Provider: <provider>
+- File modified: <file>
+- Test step added: <command>
+```
+
+### 3.6 Adaptation Phase 6: Hooks Setup
+
+**Developer must confirm before installing hooks.**
+
+Create phase branch:
+
+```bash
+git checkout chama-adopt
+git pull origin chama-adopt
+git checkout -b chama-adopt-phase6
+```
+
+#### 3.6.1 Determine hook commands
+
+Based on the stack and quality gates from `.chama.yml`:
+
+**Pre-commit (fast gate)** — runs on every commit, must be quick:
+
+| Stack | Pre-commit commands |
+|---|---|
+| Node | `npm run lint && npm run typecheck` |
+| Python | `ruff check .` |
+| Go | `golangci-lint run` |
+| C# | `dotnet format --verify-no-changes` |
+| Rust | `cargo fmt --check && cargo clippy -- -D warnings` |
+| Java | `./mvnw checkstyle:check` |
+
+**PR gate (full gate)** — runs on PR creation/update, can be slower:
+
+```bash
+# Full test suite + gate-check
+<full-test-command> && bash scripts/run-critical-gate.sh --mode pre-merge
+```
+
+#### 3.6.2 Present hooks to developer
+
+```text
+🔧 Hooks setup for your project:
+
+  Pre-commit (fast — runs on every commit):
+    <pre-commit-command>
+
+  PR gate (full — runs on PR creation):
+    <full-test-command> && gate-check
+
+  This will create/update .claude/settings.json
+
+  Install hooks? [Y/n]:
+```
+
+**Only proceed if developer confirms.**
+
+#### 3.6.3 Generate `.claude/settings.json`
+
+If `.claude/settings.json` already exists, merge the hooks section (do not overwrite other settings).
+
+If it does not exist, create it:
+
+```bash
+mkdir -p .claude
+```
+
+Generate the settings file with hooks:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(yq *)",
+      "Bash(jq *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "command": "<pre-commit-command>"
+      }
+    ]
+  }
+}
+```
+
+Add stack-specific permissions based on the detected stack (e.g., `Bash(npm *)` for Node, `Bash(go *)` for Go).
+
+**If `.claude/settings.json` already exists:** read it, parse the JSON, add the hooks section without overwriting existing permissions or settings. Use `jq` to merge:
+
+```bash
+if [ -f ".claude/settings.json" ]; then
+  # Merge hooks into existing settings (preserve existing hooks and permissions)
+  TMP=$(mktemp)
+  jq '
+    .hooks.PreToolUse = ((.hooks.PreToolUse // []) + [
+      {
+        "matcher": "Bash(git commit*)",
+        "command": "<pre-commit-command>"
+      }
+    ] | unique_by(.matcher))
+  ' .claude/settings.json > "$TMP"
+  mv "$TMP" .claude/settings.json
+fi
+```
+
+#### 3.6.4 Commit and PR
+
+```bash
+# Stage only settings file
+git add .claude/settings.json
+git commit -m "chore: adopt phase 6 — hooks setup"
+git push -u origin chama-adopt-phase6
+
+gh pr create \
+  --base chama-adopt \
+  --title "adopt: Phase 6 — Hooks Setup" \
+  --body "## Adoption Phase 6: Hooks Setup
+
+Part of the adoption plan: #<adopt-issue-number>
+
+### Hooks Configured
+- Pre-commit: <command>
+- PR gate: <command>
+
+### File
+- Created/updated: .claude/settings.json"
+```
+
+#### Update adopt-report
+
+```markdown
+### Phase 6: Hooks Setup
+- Pre-commit: <command>
+- PR gate: <command>
+- Settings file: .claude/settings.json
+```
+
+### 3.7 Finalization
 
 After all phases are completed:
 
