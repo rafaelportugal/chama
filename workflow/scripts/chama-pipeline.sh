@@ -20,11 +20,17 @@ elif [[ -d "$ROOT_DIR/chama/workflow" ]]; then
 elif [[ -d "$HOME/.claude/plugins/chama/workflow" ]]; then
   CHAMA_DIR="$HOME/.claude/plugins/chama"
 else
-  # Search in Claude Code plugin cache (versioned path)
-  CHAMA_DIR=$(find "$HOME/.claude/plugins/cache/chama" -maxdepth 3 -name "chama-pipeline.sh" -printf '%h\n' 2>/dev/null | sort -V | tail -1)
-  if [[ -n "$CHAMA_DIR" ]]; then
-    CHAMA_DIR="${CHAMA_DIR%/workflow/scripts}"
-  else
+  # Search in Claude Code plugin cache (versioned path).
+  # Real layout is $CACHE_ROOT/chama/<version>/workflow/scripts/chama-pipeline.sh (5 levels).
+  # Uses POSIX find (no -printf) so it works on macOS BSD find and GNU find alike.
+  # Stderr is intentionally not suppressed so real errors (e.g. permission denied) stay visible.
+  CACHE_ROOT="$HOME/.claude/plugins/cache/chama"
+  CHAMA_DIR=""
+  if [[ -d "$CACHE_ROOT" ]]; then
+    CHAMA_DIR=$(find "$CACHE_ROOT" -maxdepth 5 -name "chama-pipeline.sh" | sort -V | tail -1)
+    CHAMA_DIR="${CHAMA_DIR%/workflow/scripts/chama-pipeline.sh}"
+  fi
+  if [[ -z "$CHAMA_DIR" ]]; then
     echo "ERROR: chama plugin not found (local or global)." >&2
     echo "Searched: $ROOT_DIR/workflow, $ROOT_DIR/chama/, ~/.claude/plugins/chama/, ~/.claude/plugins/cache/chama/" >&2
     exit 1
