@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.0] - 2026-05-02
+
+### Added
+- Novo skill `/chama:interface-prototype` para prototipagem de alta fidelidade usando componentes do design system do projeto
+- Script `scripts/prototype-screenshot.sh` para captura standalone de screenshots via Playwright
+- Suporte a geração de código por framework (React, Vue, HTML/CSS) com output self-contained (sem build step)
+- Inventário automático do design system com auto-detect de framework
+
+### Fixed
+- Portabilidade POSIX no discovery de plugin do `chama-pipeline.sh` — substituído `find -printf` (GNU-only) por abordagem portável compatível com macOS BSD find
+- Corrigido `-maxdepth` insuficiente no discovery do plugin cache (3→5) para alcançar o path real versionado
+- Portabilidade POSIX no `resolve-spec-template.sh` — mesmo fix de `-printf` e `-maxdepth` aplicado
+
 ## [1.7.5] - 2026-03-21
 
 ### Corrigido
