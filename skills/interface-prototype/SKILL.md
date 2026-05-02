@@ -145,65 +145,180 @@ Present the inventory to the user before generating code.
 
 ## 3) Extract Input
 
-### If input is an issue number:
+### If input is an issue number (e.g., `#37` or `37`):
 
 ```bash
+INPUT_NUMBER=$(echo "$INPUT" | grep -oP '\d+')
 ISSUE_BODY=$(gh issue view "$INPUT_NUMBER" --repo "$REPO" --json body --jq '.body')
 ISSUE_TITLE=$(gh issue view "$INPUT_NUMBER" --repo "$REPO" --json title --jq '.title')
 ```
 
-Extract flow descriptions, ASCII mockups, and screen states from the issue body.
+Extract from the issue body:
+- Flow descriptions and step sequences
+- ASCII mockups (text between ` ```text ` or ` ``` ` blocks)
+- Screen states mentioned (empty, loading, error, success)
+- UI elements and interactions described
+
+Combine into a structured prototype specification:
+- **Title**: from issue title
+- **Screens**: each distinct screen/state described
+- **Components needed**: UI elements mentioned (buttons, forms, tables, cards, etc.)
 
 ### If input is free text:
-Use the text directly as the prototype specification.
+Use the text directly as the prototype specification. Parse it for:
+- Screen names/titles
+- UI elements described
+- States and flows
 
 ## 4) Generate Functional Code
 
-Using the design system inventory as context:
-
-1. Generate code in the detected framework using **real components** from the DS.
-2. Create one file per screen/state described in the input.
-3. Create an `index.html` entry point that wraps/renders the components.
-4. Save all files to `$OUTPUT_DIR/<YYYYMMDD-HHmmss>/`.
-
-Rules:
-- Use only components that exist in the inventory. Do not invent components.
-- If a needed component doesn't exist, use plain HTML/CSS as fallback and note it.
-- Keep the code functional but minimal — this is a prototype, not production code.
-- Include inline comments marking which DS components are used.
-- Maximum 5 screens per invocation.
-
-## 5) Capture Screenshots (if Playwright available)
+Create the output directory:
 
 ```bash
-if [ "$PLAYWRIGHT_AVAILABLE" = "true" ]; then
-  PROTO_DIR="$OUTPUT_DIR/<timestamp>"
-  SCREENSHOT_DIR="$PROTO_DIR/screenshots"
-  mkdir -p "$SCREENSHOT_DIR"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+PROTO_DIR="$OUTPUT_DIR/$TIMESTAMP"
+mkdir -p "$PROTO_DIR"
+```
 
-  for html_file in "$PROTO_DIR"/*.html; do
-    filename=$(basename "$html_file" .html)
-    npx playwright screenshot \
-      --viewport-size="${VIEWPORT_W},${VIEWPORT_H}" \
-      --full-page \
-      "file://$(cd "$(dirname "$html_file")" && pwd)/$(basename "$html_file")" \
-      "$SCREENSHOT_DIR/${filename}.png"
-  done
+### 4.1) Code generation per framework
+
+**React projects** (`FRAMEWORK=react`):
+- Generate standalone `.html` files that load React via CDN (no build step needed)
+- Use Babel standalone for JSX transformation in-browser
+- Import DS component styles/tokens as inline CSS approximation
+- Create one HTML file per screen: `01-<screen-name>.html`, `02-<screen-name>.html`, etc.
+- Each file is self-contained and renderable in a browser
+
+**Vue projects** (`FRAMEWORK=vue`):
+- Generate standalone `.html` files that load Vue via CDN
+- Component templates inline in the HTML
+- One file per screen with the same naming convention
+
+**HTML/CSS projects** (`FRAMEWORK=html`):
+- Generate plain `.html` files with inline CSS
+- Reference DS class names and patterns from the inventory
+- One file per screen
+
+### 4.2) Code generation rules
+
+- **Use real components**: reference actual component names, class names, and patterns from the inventory.
+- **Fallback**: if a needed component doesn't exist in the DS, use plain HTML/CSS and add a comment: `<!-- FALLBACK: no DS component for [description] -->`.
+- **Self-contained**: each HTML file must render independently in a browser (no build step).
+- **Prototype quality**: functional and visually representative, but not production code.
+- **Maximum 5 screens** per invocation.
+- **Include inline comments** marking which DS components are used.
+
+### 4.3) Create index.html
+
+Generate an `index.html` that links to all screen files:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Prototype: [title]</title>
+  <style>
+    body { font-family: system-ui; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    a { display: block; padding: 12px; margin: 8px 0; background: #f5f5f5; border-radius: 8px; text-decoration: none; color: #333; }
+    a:hover { background: #e8e8e8; }
+    .meta { color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Prototype: [title]</h1>
+  <p class="meta">Generated: [timestamp] | Framework: [framework] | DS: [ds_path]</p>
+  <h2>Screens</h2>
+  <!-- links to each screen file -->
+</body>
+</html>
+```
+
+### 4.4) Create README.md
+
+Save the original input and metadata:
+
+```markdown
+# Prototype: [title]
+
+**Generated:** YYYY-MM-DD HH:MM:SS
+**Framework:** [framework]
+**Design System:** [ds_path]
+**Input source:** [free text / issue #N]
+
+## Original Input
+[full input text or issue body]
+
+## Screens Generated
+1. `01-screen-name.html` — [description]
+2. `02-screen-name.html` — [description]
+
+## DS Components Used
+- ComponentA (from ds_path/ComponentA.tsx)
+- ComponentB (from ds_path/ComponentB.tsx)
+
+## Fallbacks
+- [description] — no DS component available, used plain HTML/CSS
+```
+
+## 5) Capture Screenshots
+
+Discover the screenshot script path:
+
+```bash
+if [ -d "chama/scripts" ]; then
+  SCREENSHOT_SCRIPT="chama/scripts/prototype-screenshot.sh"
+elif [ -d "${HOME}/.claude/plugins/chama/scripts" ]; then
+  SCREENSHOT_SCRIPT="${HOME}/.claude/plugins/chama/scripts/prototype-screenshot.sh"
+else
+  SCREENSHOT_SCRIPT="scripts/prototype-screenshot.sh"
 fi
 ```
 
+If Playwright is available, capture screenshots:
+
+```bash
+if [ "$PLAYWRIGHT_AVAILABLE" = "true" ]; then
+  SCREENSHOT_DIR="$PROTO_DIR/screenshots"
+  bash "$SCREENSHOT_SCRIPT" "$PROTO_DIR" "$SCREENSHOT_DIR" "$VIEWPORT_W" "$VIEWPORT_H"
+fi
+```
+
+If Playwright is NOT available:
+- Show a warning but do NOT fail
+- The prototype is still usable — the user can open HTML files in a browser manually
+
 ## 6) Present Results
 
-Show the user:
+Show the user a structured summary:
 
-1. **Inventory summary**: components found and framework detected
-2. **Generated files**: paths of all created files
-3. **Screenshots**: paths of captured screenshots (if any)
-4. **Browser command**: `open $OUTPUT_DIR/<timestamp>/index.html` (or equivalent)
-5. **Next actions**:
-   - Iterate: re-run with refined input
-   - Commit: add prototype to the repo
-   - Discard: `rm -rf $OUTPUT_DIR/<timestamp>/`
+```
+=== Prototype Generated ===
+
+Framework: [react/vue/html]
+Design System: [ds_path] ([N] components found)
+Output: [proto_dir]/
+
+Files:
+  - index.html (screen index)
+  - 01-login.html
+  - 02-dashboard.html
+  - README.md
+
+Screenshots: [if captured]
+  - screenshots/01-login.png
+  - screenshots/02-dashboard.png
+
+Open in browser:
+  open [proto_dir]/index.html
+
+DS Components used: [list]
+Fallbacks used: [list or "none"]
+
+Next actions:
+  1. Iterate → re-run /chama:interface-prototype with refined input
+  2. Commit → git add [proto_dir]
+  3. Discard → rm -rf [proto_dir]
+```
 
 ## Quality Rules
 
@@ -212,3 +327,4 @@ Show the user:
 - Maximum 5 screens per invocation.
 - Always show which DS components were used vs plain HTML fallbacks.
 - Never modify existing project code — prototypes are isolated in the output directory.
+- Each HTML file must be self-contained and openable in any browser without a build step.
